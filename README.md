@@ -63,11 +63,14 @@ packages/application  Effect use cases and repository ports
 packages/api-contract oRPC contract shared by web and api
 packages/infra-db     drizzle schema, migrations, seed, repositories
 packages/infra-auth   better-auth over the same SQLite file
-scripts/              db:reset
+scripts/              db:reset, and the scenario tools (docs/scenarios.md)
 docs/architecture.md  the layers and what may import what
 ```
 
 ## Review
+
+What Wachiman reports on planted changes, and how to compare two versions of it, is in
+[review scenarios](docs/scenarios.md).
 
 [Wachiman](https://github.com/niway-dev/wachiman) reviews pull requests here, in this repository's
 CI, with the owner's own Anthropic API key. It reads each diff and comments on bugs, with extra

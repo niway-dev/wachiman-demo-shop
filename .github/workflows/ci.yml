@@ -97,13 +97,14 @@ jobs:
       - run: npm install -g bun@${BUN_VERSION}
       - run: bun install --frozen-lockfile
       # --changed follows imports only. Migrations, manifests, lockfile, env example and workflows are
-      # read at run time or by tooling, so a pull request touching them runs the whole suite.
+      # read at run time or by tooling, so a pull request touching them runs the whole suite. The scenario
+      # tools' sample Wachiman output (scripts/fixtures/) belongs to that list: a test depends on it.
       - name: Decide the test scope
         id: scope
         run: |
           full=false
           if [ "${{ github.event_name }}" != "pull_request" ]; then full=true
-          elif git diff --name-only origin/main...HEAD | grep -qE '^(packages/infra-db/drizzle/|\.github/workflows/|(.*/)?package\.json$|bun\.lock$|\.env\.example$)'; then full=true
+          elif git diff --name-only origin/main...HEAD | grep -qE '^(packages/infra-db/drizzle/|scripts/fixtures/|\.github/workflows/|(.*/)?package\.json$|bun\.lock$|\.env\.example$)'; then full=true
           fi
           echo "full=$full" >> "$GITHUB_OUTPUT"
       - name: Test (changed files on a pull request)

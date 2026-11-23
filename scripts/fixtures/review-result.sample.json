@@ -1,0 +1,98 @@
+{
+  "format": "wachiman.review-result/1",
+  "change": {
+    "kind": "branch",
+    "describe": "branch `work` against baseline-v1",
+    "repository": {
+      "name": "demo-shop"
+    },
+    "base": {
+      "sha": "60cdfa073a5c28b7b74e8d0a16d17e1d51c36eaf",
+      "ref": "baseline-v1"
+    },
+    "head": {
+      "sha": "fd05cc64371eeb6bd7e076d452a29dc972ae99bd",
+      "ref": "work"
+    }
+  },
+  "engine": {
+    "version": "1.17.0"
+  },
+  "provider": {
+    "label": "trimmed sample",
+    "model": "claude-sonnet-5-5",
+    "effort": "high",
+    "profile": "default"
+  },
+  "coverage": {
+    "expected": ["packages/domain/src/discount.ts"],
+    "reviewed": ["packages/domain/src/discount.ts"],
+    "skipped": [],
+    "excluded": 0,
+    "unreviewable": [],
+    "partial": false
+  },
+  "findings": [
+    {
+      "path": "packages/domain/src/discount.ts",
+      "line": 24,
+      "severity": "blocker",
+      "topic": "bug",
+      "confidence": "high",
+      "title": "Dropping the +50 turns round-to-nearest into floor, so customers get less discount and pay more",
+      "body": "The old code `Math.floor((amount * percent + 50) / 100)` rounded to the nearest minor unit, with an exact half rounded up. The new `Math.floor((amount * percent) / 100)` always rounds the discount down. For 10% off 1999 the discount is now.",
+      "anchor": "diff"
+    }
+  ],
+  "contracts": [
+    {
+      "action": "percentageDiscount now floors instead of rounding half up",
+      "location": "packages/domain/src/discount.ts:24",
+      "status": "closed",
+      "evidence": [
+        "packages/domain/src/discount.ts:10-24",
+        "packages/domain/src/discount.test.ts:14-22",
+        "docs/features/discounts.md:9-12",
+        "packages/domain/src/coupon.ts:65",
+        "packages/domain/src/promotion.ts:38"
+      ],
+      "equivalent_path": "Previous implementation of the same function, which added 50 before dividing by 100. The documented rule is in discount.ts:10-18 and docs/features/discounts.md:9-12.",
+      "before_after": "Before: discount = floor((amount*percent+50)/100), round to nearest with half up. After: discount = floor(amount*percent/100), always rounds down. Callers coupon.ts:65 and promotion.ts:38 pass the result straight on as the discount amount.",
+      "visible_effect": "Percentage coupons and percentage line promotions give up to 1 minor unit less discount, so the cart total goes up by that amount (for example 1800 instead of 1799 for 10% off 1999).",
+      "failure_mode": "No error is raised. The total is silently wrong against the documented rule, and discount.test.ts:16-21 fail.",
+      "evidence_checked": true
+    }
+  ],
+  "summary": "The one-line change drops the `+ 50`, so percentage discounts round down instead of to nearest with half up. That contradicts the docstring, `docs/features/discounts.md` and `discount.test.ts`, and.",
+  "batches": [
+    {
+      "label": "Batch 1 of 1",
+      "files": 1,
+      "lines": 2,
+      "maxRisk": 10,
+      "status": "reviewed",
+      "turns": 7,
+      "costUsd": 0.0652166
+    }
+  ],
+  "threadReplies": [],
+  "instructionChanges": {
+    "files": [],
+    "baseSha": "60cdfa073a5c28b7b74e8d0a16d17e1d51c36eaf"
+  },
+  "execution": {
+    "costUsdEstimate": 0.0652166,
+    "usage": {
+      "input": 6,
+      "output": 2091,
+      "cacheRead": 29546,
+      "cacheWrite": 10335
+    },
+    "calls": 1,
+    "callsWithOutput": 1,
+    "turns": 7,
+    "durationMs": 18344,
+    "stop": "complete",
+    "notices": []
+  }
+}
