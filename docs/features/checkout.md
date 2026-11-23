@@ -31,8 +31,8 @@ copies the result into the response.
 ([`checkout-store.ts`](../../packages/infra-db/src/checkout-store.ts)) implements as one
 `BEGIN IMMEDIATE ... COMMIT`. In order:
 
-1. Price the cart (`priceCart`). A coupon the domain rejects (`not_found`, `expired`, `exhausted`,
-   `already_applied`) fails the checkout with `CouponRejected` (HTTP 422). A coupon the admin
+1. Price the cart (`priceCart`). A coupon the domain rejects (`not_found`, `expired`, `exhausted`;
+   `already_applied` cannot occur here, as an order carries one coupon) fails the checkout with `CouponRejected` (HTTP 422). A coupon the admin
    switched off counts as `not_found`.
 2. For each line, `nextStock(stock, quantity)` from [`stock.ts`](../../packages/domain/src/stock.ts).
    A result that would be negative fails with `InsufficientStock` (HTTP 409, with the product and

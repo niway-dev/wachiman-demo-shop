@@ -25,6 +25,15 @@ export function addItem(items: readonly CartItem[], productId: string, quantity 
   )
 }
 
+/**
+ * Reads what the user typed in a quantity box. Returns undefined for an empty or non-positive
+ * entry (a mid-edit state), so the caller keeps the line; removal belongs to the Remove button.
+ */
+export function parseQuantityInput(raw: string): number | undefined {
+  const value = Number(raw)
+  return raw.trim() === "" || !Number.isFinite(value) || value < 1 ? undefined : value
+}
+
 /** Sets a line's quantity. A quantity of 0 or less removes the line; a large one is capped. */
 export function setQuantity(
   items: readonly CartItem[],
@@ -75,13 +84,25 @@ const listeners = new Set<() => void>()
 let current: readonly CartItem[] | undefined
 
 function snapshot(): readonly CartItem[] {
-  current ??= parseCart(localStorage.getItem(STORAGE_KEY))
+  if (current === undefined) {
+    let raw: string | null = null
+    try {
+      raw = localStorage.getItem(STORAGE_KEY)
+    } catch {
+      // Storage blocked: start with an empty cart rather than break the page.
+    }
+    current = parseCart(raw)
+  }
   return current
 }
 
 function write(next: readonly CartItem[]): void {
   current = next
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // Quota or blocked storage: the cart still works for this page view, just not persisted.
+  }
   for (const listener of listeners) listener()
 }
 
@@ -89,8 +110,9 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener)
   // Another tab changed the cart: re-read it.
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY) return
-    current = parseCart(event.newValue)
+    // key === null means another tab called localStorage.clear().
+    if (event.key !== null && event.key !== STORAGE_KEY) return
+    current = parseCart(event.key === null ? null : event.newValue)
     listener()
   }
   window.addEventListener("storage", onStorage)

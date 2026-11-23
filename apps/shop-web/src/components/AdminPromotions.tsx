@@ -65,6 +65,7 @@ export function AdminPromotions(props: {
   fail: (message: string) => void
 }) {
   const [editing, setEditing] = useState<string | null>(null)
+  const [created, setCreated] = useState(0)
 
   async function attempt(action: () => Promise<unknown>) {
     try {
@@ -137,9 +138,13 @@ export function AdminPromotions(props: {
         ))}
       <h3>New promotion</h3>
       <PromotionForm
+        key={created}
         submitLabel="Create (starts off)"
         onSubmit={(input) =>
-          attempt(() => api.admin.promotions.create({ ...input, active: false }))
+          attempt(async () => {
+            await api.admin.promotions.create({ ...input, active: false })
+            setCreated((n) => n + 1)
+          })
         }
       />
     </section>

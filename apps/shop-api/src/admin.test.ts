@@ -52,20 +52,23 @@ describe("admin routes", () => {
     })
     expect(created).toMatchObject({ name: "Flash 5%", active: false, redemptions: 0 })
 
-    const edited = await client.admin.promotions.update({
-      id: created.id,
-      name: "Flash 7%",
-      rule: { kind: "percentage", percent: 7 },
-    })
-    expect(edited.rule).toEqual({ kind: "percentage", percent: 7 })
+    try {
+      const edited = await client.admin.promotions.update({
+        id: created.id,
+        name: "Flash 7%",
+        rule: { kind: "percentage", percent: 7 },
+      })
+      expect(edited.rule).toEqual({ kind: "percentage", percent: 7 })
 
-    const on = await client.admin.promotions.setActive({ id: created.id, active: true })
-    expect(on.active).toBe(true)
-    expect(statuses.every((status) => status === 200)).toBe(true)
-    expect((await client.admin.promotions.list()).some((p) => p.id === created.id)).toBe(true)
-
-    // Leave the shared app as it was: a stray 7% promotion would change other tests' totals.
-    await client.admin.promotions.setActive({ id: created.id, active: false })
+      const on = await client.admin.promotions.setActive({ id: created.id, active: true })
+      expect(on.active).toBe(true)
+      expect(statuses.every((status) => status === 200)).toBe(true)
+      expect((await client.admin.promotions.list()).some((p) => p.id === created.id)).toBe(true)
+    } finally {
+      // Leave the shared app as it was, even if an assertion fails: a stray 7% promotion would change
+      // other tests' totals.
+      await client.admin.promotions.setActive({ id: created.id, active: false })
+    }
   })
 
   test("an admin creates, edits and switches a coupon; a duplicate code answers 409", async () => {

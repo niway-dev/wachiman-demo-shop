@@ -103,8 +103,9 @@ export function inMemoryShop(seed: InMemoryShopSeed = {}) {
         Effect.sync(() => {
           const current = promotions.get(id)
           if (current === undefined) return undefined
+          const { percent: _stale, ...rest } = current as PromotionRecord & { percent?: number }
           const next = {
-            ...current,
+            ...(rule === undefined ? current : rest),
             ...rule,
             name: name ?? current.name,
             active: active ?? current.active,

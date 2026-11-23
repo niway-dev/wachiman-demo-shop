@@ -1,5 +1,23 @@
 import { describe, expect, test } from "bun:test"
-import { MAX_QUANTITY, addItem, itemCount, parseCart, removeItem, setQuantity } from "./cart.ts"
+import {
+  MAX_QUANTITY,
+  addItem,
+  itemCount,
+  parseCart,
+  parseQuantityInput,
+  removeItem,
+  setQuantity,
+} from "./cart.ts"
+
+describe("quantity input", () => {
+  test("an empty or non-positive entry is ignored, so the line is kept mid-edit", () => {
+    for (const raw of ["", " ", "0", "-3", "abc"]) expect(parseQuantityInput(raw)).toBeUndefined()
+  })
+
+  test("a positive entry is passed through", () => {
+    expect(parseQuantityInput("4")).toBe(4)
+  })
+})
 
 describe("cart list operations", () => {
   test("adding the same product twice merges the lines", () => {

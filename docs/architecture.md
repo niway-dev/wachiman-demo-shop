@@ -20,15 +20,15 @@ flowchart LR
 
 ## The layers
 
-| Package                 | What it holds                                                                                                 | May import                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `packages/domain`       | Pure types and functions: money in minor units, products, roles. No I/O, no Effect services, no dependencies. | nothing                             |
-| `packages/application`  | Use cases written in Effect and the ports they need (repositories, `CheckoutStore`, `SessionReader`).         | `domain`                            |
-| `packages/api-contract` | The oRPC contract (procedures, outputs, error codes) and its schemas.                                         | `domain`                            |
-| `packages/infra-db`     | The drizzle schema, migrations, seed, and repository implementations as Effect layers.                        | `application`, `domain`             |
-| `packages/infra-auth`   | better-auth over the same SQLite file, the `SessionReader` adapter, the demo users.                           | `application`, `domain`, `infra-db` |
-| `apps/shop-api`         | Hono on `Bun.serve`, the oRPC router, the session and role checks, `getTestApp()`.                            | everything above                    |
-| `apps/shop-web`         | TanStack Start pages.                                                                                         | `api-contract`, `domain`            |
+| Package                 | What it holds                                                                                                                                                                     | May import                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `packages/domain`       | Pure types and functions: money in minor units, products, roles, and the cart, pricing, discount, promotion, coupon and stock rules. No I/O, no Effect services, no dependencies. | nothing                             |
+| `packages/application`  | Use cases written in Effect and the ports they need (repositories, `CheckoutStore`, `SessionReader`).                                                                             | `domain`                            |
+| `packages/api-contract` | The oRPC contract (procedures, outputs, error codes) and its schemas.                                                                                                             | `domain`                            |
+| `packages/infra-db`     | The drizzle schema, migrations, seed, and repository implementations as Effect layers.                                                                                            | `application`, `domain`             |
+| `packages/infra-auth`   | better-auth over the same SQLite file, the `SessionReader` adapter, the demo users.                                                                                               | `application`, `domain`, `infra-db` |
+| `apps/shop-api`         | Hono on `Bun.serve`, the oRPC router, the session and role checks, `getTestApp()`.                                                                                                | everything above                    |
+| `apps/shop-web`         | TanStack Start pages.                                                                                                                                                             | `api-contract`, `domain`            |
 
 ## Rules of the road
 
@@ -55,7 +55,7 @@ in the same file and are created by one migration set in `packages/infra-db/driz
 - Money is an integer in minor units (1999 is 19.99). Dates are integers (milliseconds since the
   epoch).
 - `bun run db:reset` deletes the file, applies the migrations with drizzle's `bun-sqlite` migrator,
-  and seeds the demo catalog and users.
+  and seeds the demo catalog, promotions, coupons and users.
 - To change the schema, edit `packages/infra-db/src/schema.ts` and run `bun run db:generate`. A
   change is always a new migration file; an applied one is never edited.
 

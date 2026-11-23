@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { checkout, listProducts } from "@demo-shop/application"
 import { sessionReaderInMemory } from "@demo-shop/application/testing"
-import { Effect } from "effect"
-import { Layer } from "effect"
+import { Effect, Layer } from "effect"
 import {
   CheckoutStoreLive,
   SEED_PRODUCTS,
@@ -76,7 +75,7 @@ describe("infra-db", () => {
     const count = (sqlite: ReturnType<typeof freshDatabase>["sqlite"], table: string) =>
       sqlite.query<{ n: number }, []>(`select count(*) as n from ${table}`).get()?.n
 
-    test("a failing line rolls back the stock and the redemptions of the earlier lines", async () => {
+    test("a failing line rolls back the stock of the earlier lines and writes no order", async () => {
       const { handle, layer, headers } = shopWithCustomer()
       const error = await Effect.runPromise(
         Effect.flip(

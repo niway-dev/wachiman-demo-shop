@@ -2,7 +2,7 @@ import { formatMoney, money } from "@demo-shop/domain"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { api } from "../lib/api.ts"
-import { useCart } from "../lib/cart.ts"
+import { parseQuantityInput, useCart } from "../lib/cart.ts"
 import { couponRejectionMessage, describeCheckoutError } from "../lib/checkout-errors.ts"
 import { useQuote } from "../lib/use-quote.ts"
 
@@ -100,9 +100,10 @@ function Cart() {
                     min={1}
                     aria-label={`Quantity of ${nameOf(item.productId)}`}
                     value={item.quantity}
-                    onChange={(event) =>
-                      cart.setQuantity(item.productId, Number(event.target.value))
-                    }
+                    onChange={(event) => {
+                      const quantity = parseQuantityInput(event.target.value)
+                      if (quantity !== undefined) cart.setQuantity(item.productId, quantity)
+                    }}
                   />
                 </td>
                 <td className="num">{line ? show(line.subtotalMinor) : "…"}</td>
@@ -124,6 +125,7 @@ function Cart() {
         Coupon code
         <input
           value={couponCode}
+          maxLength={40}
           onChange={(event) => setCouponCode(event.target.value)}
           placeholder="e.g. WELCOME5"
         />
