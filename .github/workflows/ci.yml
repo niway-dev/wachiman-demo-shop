@@ -49,6 +49,8 @@ jobs:
       - run: npm install -g bun@${BUN_VERSION}
       - run: bun install --frozen-lockfile
       - run: bun run build
+      # Starts the built api, which source tests cannot do.
+      - run: bun scripts/smoke-api.ts
 
   secrets:
     runs-on: ubuntu-latest

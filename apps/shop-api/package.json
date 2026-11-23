@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "bun --env-file=../../.env --watch src/main.ts",
-    "build": "bun build src/main.ts --target=bun --outdir=dist"
+    "build": "bun build src/main.ts --target=bun --outdir=dist && rm -rf dist/drizzle && cp -R ../../packages/infra-db/drizzle dist/drizzle"
   },
   "dependencies": {
     "@demo-shop/api-contract": "workspace:*",
