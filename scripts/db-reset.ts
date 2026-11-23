@@ -1,10 +1,5 @@
 import { DEMO_USERS, createAuth, seedDemoUsers } from "@demo-shop/infra-auth"
-import {
-  migrateDatabase,
-  openDatabase,
-  resolveDatabasePath,
-  seedProducts,
-} from "@demo-shop/infra-db"
+import { migrateDatabase, openDatabase, resolveDatabasePath, seedShop } from "@demo-shop/infra-db"
 import { mkdirSync, rmSync } from "node:fs"
 import { dirname } from "node:path"
 import { assertResettable } from "./db-reset-guard.ts"
@@ -12,7 +7,8 @@ import { ensureEnv } from "./ensure-env.ts"
 
 /**
  * Deletes the database file, applies the migrations and seeds the demo data:
- * one admin, one customer and the catalog. Every run starts from the same
+ * one admin, one customer, the catalog,
+ * the promotions and the coupons. Every run starts from the same
  * state. Prints the elapsed milliseconds.
  */
 const started = performance.now()
@@ -26,7 +22,7 @@ for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true }
 
 const handle = openDatabase(path)
 migrateDatabase(handle)
-seedProducts(handle.db)
+seedShop(handle.db)
 
 const auth = createAuth({
   db: handle.db,
