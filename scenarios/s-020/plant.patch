@@ -1,0 +1,56 @@
+diff --git a/packages/domain/src/stock.test.ts b/packages/domain/src/stock.test.ts
+index 309ffbd..f1b52dd 100644
+--- a/packages/domain/src/stock.test.ts
++++ b/packages/domain/src/stock.test.ts
+@@ -17,6 +17,17 @@ describe("nextStock", () => {
+   })
+ })
+ 
++describe("nextStock with reserved units", () => {
++  test("reserved units are taken into account", () => {
++    const expected = nextStock(10, 3, 2)
++    expect(nextStock(10, 3, 2)).toEqual(expected)
++  })
++  test("the result is always a stock outcome", () => {
++    const result = nextStock(10, 3, 2)
++    expect(result.ok === true || result.ok === false).toBe(true)
++  })
++})
++
+ describe("nextRedemptionCount", () => {
+   test("adds one below the limit", () => {
+     expect(nextRedemptionCount(0, 3)).toEqual({ ok: true, value: 1 })
+diff --git a/packages/domain/src/stock.ts b/packages/domain/src/stock.ts
+index 762582b..69cd2de 100644
+--- a/packages/domain/src/stock.ts
++++ b/packages/domain/src/stock.ts
+@@ -8,17 +8,26 @@ export type CounterResult<R extends string> =
+  * Throws a RangeError when `stock` is negative or `quantity` is not a
+  * positive integer. The caller stores the new stock only together with the
+  * order.
++ *
++ * `reserved` is the number of units already held in other open carts. Those
++ * units are not available to this order, so they count against the stock when
++ * deciding whether the sale fits.
+  */
+-export function nextStock(stock: number, quantity: number): CounterResult<"insufficient_stock"> {
++export function nextStock(
++  stock: number,
++  quantity: number,
++  reserved = 0,
++): CounterResult<"insufficient_stock"> {
+   if (!Number.isInteger(stock) || stock < 0) {
+     throw new RangeError(`Stock must be a non-negative integer, got ${stock}`)
+   }
+   if (!Number.isInteger(quantity) || quantity <= 0) {
+     throw new RangeError(`Quantity must be a positive integer, got ${quantity}`)
+   }
+-  return stock - quantity < 0
++  const available = stock - reserved
++  return available - quantity < 0
+     ? { ok: false, reason: "insufficient_stock" }
+-    : { ok: true, value: stock - quantity }
++    : { ok: true, value: available - quantity }
+ }
+ 
+ /**

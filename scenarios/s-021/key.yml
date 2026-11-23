@@ -1,0 +1,13 @@
+kind: defect
+baseline: baseline-v2
+title: Update redemption counting
+files:
+  - packages/domain/src/stock.test.ts
+  - packages/domain/src/stock.ts
+expected:
+  - file: packages/domain/src/stock.ts
+    lines: [41, 41]
+    must_mention: the limit check changed from >= to >, so a coupon already at its usage limit is redeemed once more and the limit can be exceeded by one
+  - file: packages/domain/src/stock.test.ts
+    lines: [25, 28]
+    must_mention: the existing assertion for the limit case was rewritten to expect the new behavior (ok, value 4) instead of exhausted, so the test now enforces the defect instead of catching it

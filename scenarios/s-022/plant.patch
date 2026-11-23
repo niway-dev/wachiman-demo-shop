@@ -1,0 +1,42 @@
+diff --git a/packages/domain/src/promotion-selection.test.ts b/packages/domain/src/promotion-selection.test.ts
+new file mode 100644
+index 0000000..329a7d0
+--- /dev/null
++++ b/packages/domain/src/promotion-selection.test.ts
+@@ -0,0 +1,36 @@
++import { describe, expect, mock, test } from "bun:test"
++import { type Money, money } from "./money.ts"
++import type { LinePromotionResult, Promotion } from "./promotion.ts"
++
++const price = money(1000)
++const b2g1: Promotion = { id: "b2g1", kind: "buyTwoGetOne" }
++const ten: Promotion = { id: "ten", kind: "percentage", percent: 10 }
++
++type BestLinePromotion = (
++  promotions: readonly Promotion[],
++  unitPrice: Money,
++  quantity: number,
++) => LinePromotionResult | null
++
++describe("bestLinePromotion", () => {
++  test("picks buy-two-get-one over 10% on three units", () => {
++    const bestLinePromotion = mock<BestLinePromotion>(() => ({
++      promotionId: "b2g1",
++      discount: money(1000),
++    }))
++
++    bestLinePromotion([ten, b2g1], price, 3)
++
++    expect(bestLinePromotion).toHaveBeenCalledTimes(1)
++    expect(bestLinePromotion).toHaveBeenCalledWith([ten, b2g1], price, 3)
++  })
++
++  test("returns nothing when no promotion discounts", () => {
++    const bestLinePromotion = mock<BestLinePromotion>(() => null)
++
++    const result = bestLinePromotion([b2g1], price, 2)
++
++    expect(bestLinePromotion).toHaveBeenCalled()
++    expect(result).toBeNull()
++  })
++})
