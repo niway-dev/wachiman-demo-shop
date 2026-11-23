@@ -67,6 +67,20 @@ scripts/              db:reset
 docs/architecture.md  the layers and what may import what
 ```
 
+## Review
+
+[Wachiman](https://github.com/niway-dev/wachiman) reviews pull requests here, in this repository's
+CI, with the owner's own Anthropic API key. It reads each diff and comments on bugs, with extra
+attention to the paths in [`.wachiman.yml`](.wachiman.yml): authentication and checkout
+(critical) and pricing (high).
+
+The workflow in `.github/workflows/review.yml` runs only for pull requests from a branch of this
+repository opened by the owner or a member. A pull request from a fork gets no review and no
+secret.
+
+To turn it on, set the repository secret `ANTHROPIC_API_KEY` in the repository settings, under
+Secrets and variables, Actions.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

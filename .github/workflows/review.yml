@@ -1,0 +1,27 @@
+name: Wachiman review
+
+# Why forks are excluded: the review runs with the owner's API key. GitHub never gives secrets to a
+# fork's pull request, and `pull_request_target` would hand them to code the fork controls, so this
+# workflow uses `on: pull_request` only, and the job also requires that the branch lives in this
+# repository and that the author is the owner or a member. scripts/review-workflow.test.ts pins both.
+#
+# The `uses:` ref is an exact release tag, never a branch or the floating `v1`.
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER","MEMBER"]'), github.event.pull_request.author_association)
+    uses: niway-dev/wachiman/.github/workflows/review.yml@v1.19.0
+    with:
+      operator: ${{ github.repository_owner }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
