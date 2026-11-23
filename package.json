@@ -34,7 +34,7 @@
     }
   },
   "scripts": {
-    "dev": "bun run --parallel --filter './apps/*' dev",
+    "dev": "bun scripts/ensure-env.ts && bun run --parallel --filter './apps/*' dev",
     "build": "bun run --filter './apps/*' build",
     "test": "bun test",
     "db:reset": "bun scripts/db-reset.ts",
