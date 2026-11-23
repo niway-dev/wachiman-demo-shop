@@ -2,6 +2,7 @@
  * Runs Wachiman over the scenarios and compares runs. A regression check, not a score.
  *
  *   bun scripts/report.ts run --label <name> [ids...] [--branch <name>]
+ *   bun scripts/report.ts summarize <label> [--branch <name>]
  *   bun scripts/report.ts compare <labelA> <labelB>
  *
  * `run` plants each scenario in a temporary worktree (as validate does), commits it with the
@@ -24,6 +25,7 @@ import {
   readScenario,
   renderTable,
   repoRoot,
+  resolveWachimanArgv,
   resolveScenarioRef,
   run,
   seconds,
@@ -35,7 +37,8 @@ import {
 } from "./scenario-lib.ts"
 
 const help = `Usage:
-  bun scripts/report.ts run --label <name> [ids...] [--branch <name>]
+  bun scripts/report.ts run --label <name> [ids...] [--branch <name>] [--wachiman <cmd>]
+  bun scripts/report.ts summarize <label> [--branch <name>]
   bun scripts/report.ts compare <labelA> <labelB>
 
 run      for each scenario (or the ids given): plant it in a temporary worktree and run
@@ -44,9 +47,17 @@ run      for each scenario (or the ids given): plant it in a temporary worktree 
          .runs/ at the repo root). --label defaults to the Wachiman version in the JSON.
          A finding matches an expected one when it is in the same file, its line is inside the
          expected lines +-3, and its severity is medium or higher (blocker, fix; an unknown
-         severity counts as medium or higher and prints a warning). A clean scenario fails on
-         any finding of medium or higher. Findings that matched nothing are listed to read.
+         severity counts as medium or higher and prints a warning). A design scenario accepts any
+         severity; a match found only at low severity shows as "ok (low)". A clean scenario fails
+         on any finding of medium or higher. Findings that matched nothing are listed to read.
          This calls the real Wachiman and spends the budget of your signed-in claude.
+         --wachiman <cmd> chooses the Wachiman command, else $WACHIMAN_BIN, else wachiman on
+         PATH. <cmd> may hold spaces and is split on whitespace, for example
+         --wachiman "bun /path/to/wachiman/bin/wachiman.ts". To compare two versions, run one
+         label per version, then compare.
+summarize  rebuild summary.json and the table of a label from its saved <id>.json files and the
+         keys on the scenarios branch. Calls no Wachiman and spends nothing; use it after
+         changing the matching rules.
 compare  the two labels side by side per scenario (duration, cost, matched or not) and totals.
 
 This is a regression check between Wachiman versions on a small fixed set. It is not a score,
@@ -59,6 +70,7 @@ const { values, positionals } = parseArgs({
     help: { type: "boolean", short: "h" },
     label: { type: "string" },
     branch: { type: "string", default: "scenarios" },
+    wachiman: { type: "string" },
   },
 })
 
@@ -85,7 +97,7 @@ function printSummary(summary: Summary): void {
     s.status === "run-failed"
       ? "RUN FAILED"
       : `${s.expected.filter((e) => e.matched).length}/${s.expected.length}`,
-    s.pass ? "ok" : "FAIL",
+    s.pass ? (s.expected.some((e) => e.lowOnly) ? "ok (low)" : "ok") : "FAIL",
     s.risk ? `${s.risk.maxRisk ?? "?"} ${s.risk.level ?? ""} (want ${s.risk.expected})`.trim() : "",
   ])
   console.log(
@@ -150,7 +162,7 @@ async function runCommand(): Promise<number> {
       const result = await run(
         worktree.dir,
         [
-          "wachiman",
+          ...resolveWachimanArgv(values.wachiman, process.env.WACHIMAN_BIN),
           "local",
           "--base",
           key.baseline,
@@ -192,6 +204,43 @@ async function runCommand(): Promise<number> {
   console.log(`label: ${label}  (${labelDir(label)})\n`)
   printSummary(summary)
   return summaries.every((s) => s.status === "ok") ? 0 : 1
+}
+
+/** Rebuilds a label's summary from the saved JSON and the keys, without running Wachiman. */
+async function summarizeCommand(label: string): Promise<number> {
+  checkLabel(label)
+  const ref = await resolveScenarioRef(values.branch)
+  const dir = labelDir(label)
+  let old: Summary | null = null
+  try {
+    old = JSON.parse(readFileSync(join(dir, "summary.json"), "utf8")) as Summary
+  } catch {
+    old = null
+  }
+  const ids = old ? old.scenarios.map((s) => s.id) : await listScenarioIds(ref)
+  const summaries: ScenarioSummary[] = []
+  let engineVersion = old?.engineVersion ?? "unknown"
+  for (const id of ids) {
+    const { key, errors } = parseKey((await readScenario(ref, id)).keyText)
+    if (!key) throw new Error(`scenarios/${id}/key.yml is invalid:\n  - ${errors.join("\n  - ")}`)
+    let json: ReviewResult
+    try {
+      json = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8")) as ReviewResult
+    } catch {
+      // No saved JSON: that run failed. Keep its old row when there is one.
+      summaries.push(
+        old?.scenarios.find((s) => s.id === id) ?? failedSummary(id, key, "no saved JSON"),
+      )
+      continue
+    }
+    engineVersion = json.engine?.version ?? engineVersion
+    summaries.push(summarizeScenario(id, key, json))
+  }
+  const summary = buildSummary(label, engineVersion, summaries)
+  writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`)
+  console.log(`label: ${label}  (${dir})\n`)
+  printSummary(summary)
+  return 0
 }
 
 function readSummary(label: string): Summary {
@@ -251,6 +300,8 @@ try {
   const [command, first, second] = positionals
   if (command === "run") {
     process.exit(await runCommand())
+  } else if (command === "summarize" && first && positionals.length === 2) {
+    process.exit(await summarizeCommand(first))
   } else if (command === "compare" && first && second && positionals.length === 3) {
     process.exit(compareCommand(first, second))
   } else {

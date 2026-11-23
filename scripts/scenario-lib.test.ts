@@ -12,6 +12,7 @@ import {
   neutralTitleProblem,
   parseKey,
   renderTable,
+  resolveWachimanArgv,
   riskLevel,
   severityClass,
   strandedTip,
@@ -212,10 +213,54 @@ describe("matchFindings", () => {
     expect(matchFindings(clean, [finding(5, "blocker")]).mediumOrHigher).toHaveLength(1)
   })
 
+  test("a design key is matched by a low severity finding and flagged lowOnly", () => {
+    const design = key({ kind: "design" })
+    const result = matchFindings(design, [finding(22, "consider")])
+    expect(result.pass).toBe(true)
+    expect(result.expected[0]?.matched).toBe(true)
+    expect(result.expected[0]?.lowOnly).toBe(true)
+    expect(result.unmatched).toHaveLength(0)
+  })
+
+  test("a design key matched by a medium finding is not lowOnly, and still needs the window", () => {
+    const design = key({ kind: "design" })
+    const both = matchFindings(design, [finding(22, "consider"), finding(23, "fix")])
+    expect(both.expected[0]?.lowOnly).toBeUndefined()
+    expect(both.expected[0]?.by?.severity).toBe("fix")
+    expect(matchFindings(design, [finding(40, "consider")]).pass).toBe(false)
+  })
+
+  test("a defect key matched only by a consider finding still fails", () => {
+    const result = matchFindings(key({ kind: "defect" }), [finding(22, "consider")])
+    expect(result.pass).toBe(false)
+    expect(result.expected[0]?.lowOnly).toBeUndefined()
+  })
+
   test("a routing scenario with expected none passes without findings", () => {
     expect(
       matchFindings(key({ kind: "routing", expected: "none", expected_risk: "high" }), []).pass,
     ).toBe(true)
+  })
+})
+
+describe("resolveWachimanArgv", () => {
+  test("the flag wins over the environment, which wins over the default", () => {
+    expect(resolveWachimanArgv("a", "b")).toEqual(["a"])
+    expect(resolveWachimanArgv(undefined, "b")).toEqual(["b"])
+    expect(resolveWachimanArgv(undefined, undefined)).toEqual(["wachiman"])
+  })
+
+  test("an empty value falls through", () => {
+    expect(resolveWachimanArgv("", "b")).toEqual(["b"])
+    expect(resolveWachimanArgv("  ", "")).toEqual(["wachiman"])
+  })
+
+  test("splits on any whitespace into argv", () => {
+    expect(resolveWachimanArgv("bun  /p/wachiman/bin/wachiman.ts", undefined)).toEqual([
+      "bun",
+      "/p/wachiman/bin/wachiman.ts",
+    ])
+    expect(resolveWachimanArgv(undefined, " bun\t/x.ts ")).toEqual(["bun", "/x.ts"])
   })
 })
 

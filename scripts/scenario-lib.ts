@@ -235,6 +235,8 @@ export interface ExpectedOutcome {
   file: string
   lines: [number, number]
   matched: boolean
+  /** Design scenarios only: matched, but every matching finding was low severity. */
+  lowOnly?: boolean
   by?: { line: number; severity: string; title?: string }
 }
 
@@ -253,8 +255,10 @@ const cleanPath = (path: string) => path.replace(/^\.\//, "")
 /**
  * A finding matches an expected finding when it is in the same file, its line is inside the
  * expected window widened by LINE_TOLERANCE, and its severity is medium or higher. Line 0 means
- * "the whole file" in Wachiman's format and matches on the file alone. For a clean scenario any
- * finding of medium or higher is a failure.
+ * "the whole file" in Wachiman's format and matches on the file alone. For a design scenario the
+ * severity does not matter (design problems are low severity by nature); a match found only at
+ * low severity is flagged `lowOnly`. For a clean scenario any finding of medium or higher is a
+ * failure.
  */
 export function matchFindings(key: ScenarioKey, findings: ReviewFinding[]): MatchResult {
   const warnings: string[] = []
@@ -275,13 +279,16 @@ export function matchFindings(key: ScenarioKey, findings: ReviewFinding[]): Matc
   // A finding may satisfy more than one expectation; it is "used" when any expectation takes it.
   const used = new Set<ReviewFinding>()
   const expected: ExpectedOutcome[] = expectedList.map((want) => {
-    const candidates = high.filter((f) => covers(want, f))
+    const pool = key.kind === "design" ? findings : high
+    const candidates = pool.filter((f) => covers(want, f))
     for (const f of candidates) used.add(f)
-    const hit = candidates[0]
+    // Prefer a medium or higher finding as the reported hit when there is one.
+    const hit = candidates.find((f) => isMediumOrHigher(f.severity)) ?? candidates[0]
     return {
       file: want.file,
       lines: want.lines,
       matched: hit !== undefined,
+      ...(hit && !isMediumOrHigher(hit.severity) ? { lowOnly: true } : {}),
       ...(hit ? { by: { line: hit.line, severity: hit.severity, title: hit.title } } : {}),
     }
   })
@@ -289,6 +296,15 @@ export function matchFindings(key: ScenarioKey, findings: ReviewFinding[]): Matc
   const unmatched = findings.filter((f) => !used.has(f))
   const pass = key.kind === "clean" ? high.length === 0 : expected.every((e) => e.matched)
   return { expected, unmatched, mediumOrHigher: high, warnings, pass }
+}
+
+/**
+ * The argv that starts Wachiman: the `--wachiman` flag, else `WACHIMAN_BIN`, else `wachiman` on
+ * PATH. The command may hold spaces (`bun /path/to/bin/wachiman.ts`); it is split on whitespace.
+ */
+export function resolveWachimanArgv(flag: string | undefined, envValue: string | undefined) {
+  const raw = [flag, envValue].find((v) => v !== undefined && v.trim() !== "") ?? "wachiman"
+  return raw.trim().split(/\s+/)
 }
 
 // ---------------------------------------------------------------------------------------------

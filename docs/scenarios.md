@@ -70,6 +70,7 @@ Every script has `--help`. Run them from `main` (or any branch with the scripts)
 | `bun scripts/scenario.ts apply <id> [--dry-run]`  | Builds branch `<id>` from the baseline, commits with the neutral title, pushes, opens a PR against main.                                       |
 | `bun scripts/validate.ts [ids...]`                | Checks keys, that patches apply, and that oracles pass on the baseline and fail with the patch.                                                |
 | `bun scripts/report.ts run --label <name> [ids]`  | Runs `wachiman local` on each scenario and saves the JSON and a summary.                                                                       |
+| `bun scripts/report.ts summarize <label>`         | Rebuilds a label's summary and table from its saved JSON. Runs no Wachiman and spends nothing.                                                 |
 | `bun scripts/report.ts compare <labelA> <labelB>` | Two runs side by side: time, cost, matched or not, totals.                                                                                     |
 | `bun scripts/reset.ts [--force] <tag>`            | Puts this checkout on branch `work/<tag>` at the tag and resets the database. Refuses to drop commits already on that branch unless `--force`. |
 
@@ -102,13 +103,24 @@ How a finding is matched:
 - same file, and its line inside the expected `lines` widened by 3 on each side (line 0, "the whole
   file", matches on the file alone);
 - severity medium or higher: `blocker` and `fix` count; `consider` and `info` do not. An unknown
-  severity counts as medium or higher and prints a warning;
+  severity counts as medium or higher and prints a warning. The exception is a `design` scenario:
+  design problems are low severity by nature, so an expected finding counts as found at any
+  severity, and a match found only at low severity shows as `ok (low)` in the table;
 - for a `clean` scenario, any finding of medium or higher fails it.
 
 Findings that matched nothing are listed so you can read them: an unmatched finding may be a real
 issue or noise, and only a person can say. For `routing`, the table shows the highest `maxRisk` of
 the review's batches and the level it implies (8 or more: high, 6 or more: medium). That is an
 approximation read from the JSON, which carries a number and not the level.
+
+The Wachiman command is chosen with `--wachiman <cmd>`, else the environment variable
+`WACHIMAN_BIN`, else `wachiman` on PATH. `<cmd>` may contain spaces and is split on whitespace, for
+example `--wachiman "bun /path/to/wachiman/bin/wachiman.ts"`. To compare two versions, run one label
+per version (each with its own `--wachiman` or `WACHIMAN_BIN`), then `compare` them.
+
+`report.ts summarize <label>` rebuilds `summary.json` and the table from the saved `<id>.json` files
+and the keys, without calling Wachiman. Use it to check a change to the matching rules against an
+existing run for free.
 
 `compare` prints two labels side by side. Read it as a regression check on a small fixed set: a
 scenario that went from matched to not matched, or a cost that doubled, is worth a look. It is not
