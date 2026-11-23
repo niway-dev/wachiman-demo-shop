@@ -1,5 +1,5 @@
 kind: clean
-baseline: baseline-v1
+baseline: baseline-v2
 title: Move the stock table into its own component
 files:
   - apps/shop-web/src/components/StockTable.tsx

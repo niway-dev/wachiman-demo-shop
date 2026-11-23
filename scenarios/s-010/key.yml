@@ -1,5 +1,5 @@
 kind: routing
-baseline: baseline-v1
+baseline: baseline-v2
 title: Adjust session settings
 files:
   - packages/infra-auth/src/auth.ts

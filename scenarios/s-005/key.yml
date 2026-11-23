@@ -1,5 +1,5 @@
 kind: defect
-baseline: baseline-v1
+baseline: baseline-v2
 title: Add an operations token to the api
 files:
   - apps/shop-api/src/app.ts
