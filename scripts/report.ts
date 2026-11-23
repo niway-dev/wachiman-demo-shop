@@ -123,6 +123,13 @@ async function runCommand(): Promise<number> {
   const env = { ...process.env }
   delete env.ANTHROPIC_API_KEY
 
+  // Check every key before spending anything, so a bad key.yml cannot abort a paid run midway.
+  for (const id of ids) {
+    const { errors } = parseKey((await readScenario(ref, id)).keyText)
+    if (errors.length > 0)
+      throw new Error(`scenarios/${id}/key.yml is invalid:\n  - ${errors.join("\n  - ")}`)
+  }
+
   const worktree = await TempWorktree.create()
   const summaries: ScenarioSummary[] = []
   let engineVersion = "unknown"

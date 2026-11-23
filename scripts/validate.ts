@@ -158,7 +158,21 @@ try {
   worktree = await TempWorktree.create()
   const rows: Row[] = []
   for (const id of ids) {
-    const row = await validateOne(worktree, ref, id)
+    let row: Row
+    try {
+      row = await validateOne(worktree, ref, id)
+    } catch (error) {
+      // One scenario's git or install failure must not hide the others.
+      row = {
+        id,
+        kind: "?",
+        key: SKIP,
+        applies: FAIL,
+        baseline: SKIP,
+        planted: SKIP,
+        notes: [(error as Error).message],
+      }
+    }
     rows.push(row)
     console.error(`checked ${id}`)
   }

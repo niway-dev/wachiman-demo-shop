@@ -53,7 +53,7 @@ runs from `scenarios-oracle/` at the repository root, so import code by relative
 ## Add a scenario
 
 1. Create a throwaway branch from the baseline tag, make the change, and save it with
-   `git diff > plant.patch`.
+   `git add -A && git diff --cached > plant.patch` (plain `git diff` omits new files).
 2. On the `scenarios` branch, add `scenarios/<id>/plant.patch`, `key.yml` and, for defect and repro,
    `oracle.test.ts`. Pick a neutral `title`.
 3. Run `bun scripts/validate.ts <id>` until it passes.
