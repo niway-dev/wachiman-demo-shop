@@ -1,7 +1,11 @@
 import { SessionReaderLive, createAuth } from "@demo-shop/infra-auth"
 import {
+  CheckoutStoreLive,
+  CouponRepositoryLive,
   type DatabaseHandle,
+  OrderRepositoryLive,
   ProductRepositoryLive,
+  PromotionRepositoryLive,
   migrateDatabase,
   openDatabase,
 } from "@demo-shop/infra-db"
@@ -35,7 +39,14 @@ export function createApp(config: ApiConfig = loadConfig()): ShopApp {
     trustedOrigins: [config.webOrigin, config.apiOrigin],
   })
 
-  const services = Layer.mergeAll(ProductRepositoryLive(handle.db), SessionReaderLive(auth))
+  const services = Layer.mergeAll(
+    ProductRepositoryLive(handle.db),
+    PromotionRepositoryLive(handle.db),
+    CouponRepositoryLive(handle.db),
+    OrderRepositoryLive(handle.db),
+    CheckoutStoreLive(handle),
+    SessionReaderLive(auth),
+  )
   const rpc = new RPCHandler(createRouter(services))
 
   const app = new Hono()

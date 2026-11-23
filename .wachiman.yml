@@ -1,0 +1,47 @@
+# Path rules for Wachiman. Everything not listed keeps the default risk scoring.
+paths:
+  # Authentication
+  - match: "packages/infra-auth/**"
+    severity: critical
+    reason: login, sessions and demo accounts; a mistake lets the wrong person in
+  - match: "packages/application/src/session.ts"
+    severity: critical
+    reason: decides who is signed in and whether they are an admin
+  - match: "apps/shop-api/src/app.ts"
+    severity: critical
+    reason: wires the session reader and the cookie handling in front of every route
+  - match: "apps/shop-api/src/router.ts"
+    severity: critical
+    reason: session and admin role checks, and the checkout handler, guard every procedure
+  - match: "apps/shop-web/src/routes/login.tsx"
+    severity: critical
+    reason: the login route; it handles credentials
+  # Checkout
+  - match: "packages/application/src/checkout.ts"
+    severity: critical
+    reason: the checkout use case places orders and takes stock
+  - match: "packages/infra-db/src/checkout-store.ts"
+    severity: critical
+    reason: the checkout transaction; a mistake oversells stock or loses an order
+  - match: "packages/api-contract/src/index.ts"
+    severity: critical
+    reason: the contract shared by web and api, including the checkout input and errors
+  # Pricing
+  - match: "packages/domain/src/pricing.ts"
+    severity: high
+    reason: computes what the customer pays
+  - match: "packages/domain/src/discount.ts"
+    severity: high
+    reason: discount math changes the total charged
+  - match: "packages/domain/src/promotion.ts"
+    severity: high
+    reason: promotion rules decide which discounts apply
+  - match: "packages/domain/src/coupon.ts"
+    severity: high
+    reason: coupon rules decide which discounts apply
+  - match: "packages/domain/src/cart.ts"
+    severity: high
+    reason: cart lines feed the price calculation
+  - match: "packages/domain/src/stock.ts"
+    severity: high
+    reason: stock rules decide what can be sold

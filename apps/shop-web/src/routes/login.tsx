@@ -2,10 +2,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
 import { authClient } from "../lib/auth-client.ts"
 
-export const Route = createFileRoute("/login")({ component: Login })
+export const Route = createFileRoute("/login")({
+  // `next` lets the cart send a customer to log in and come back to check out.
+  validateSearch: (search: Record<string, unknown>): { next?: "/cart" } =>
+    search.next === "/cart" ? { next: "/cart" } : {},
+  component: Login,
+})
 
 function Login() {
   const navigate = useNavigate()
+  const { next } = Route.useSearch()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -29,7 +35,7 @@ function Login() {
     } finally {
       setPending(false)
     }
-    await navigate({ to: "/me" })
+    await navigate({ to: next ?? "/me" })
   }
 
   return (

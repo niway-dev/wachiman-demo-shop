@@ -1,5 +1,6 @@
 import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router"
 import type { ReactNode } from "react"
+import { useCart } from "../lib/cart.ts"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
@@ -26,11 +27,27 @@ function NotFound() {
   )
 }
 
+/** The cart link with the number of units in the cart (hidden while the cart is empty). */
+function CartLink() {
+  const { count } = useCart()
+  return (
+    <Link to="/cart">
+      Cart
+      {count > 0 ? (
+        <span className="badge" aria-label={`${count} items in cart`}>
+          {count}
+        </span>
+      ) : null}
+    </Link>
+  )
+}
+
 function RootComponent() {
   return (
     <RootDocument>
       <nav>
         <Link to="/">Shop</Link>
+        <CartLink />
         <Link to="/login">Log in</Link>
         <Link to="/me">My account</Link>
         <Link to="/admin">Admin</Link>

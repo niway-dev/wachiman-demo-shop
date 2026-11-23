@@ -20,15 +20,15 @@ flowchart LR
 
 ## The layers
 
-| Package                 | What it holds                                                                                                 | May import                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `packages/domain`       | Pure types and functions: money in minor units, products, roles. No I/O, no Effect services, no dependencies. | nothing                             |
-| `packages/application`  | Use cases written in Effect and the repository ports they need (`ProductRepository`, `SessionReader`).        | `domain`                            |
-| `packages/api-contract` | The oRPC contract (procedures, outputs, error codes) and its schemas.                                         | `domain`                            |
-| `packages/infra-db`     | The drizzle schema, migrations, seed, and repository implementations as Effect layers.                        | `application`, `domain`             |
-| `packages/infra-auth`   | better-auth over the same SQLite file, the `SessionReader` adapter, the demo users.                           | `application`, `domain`, `infra-db` |
-| `apps/shop-api`         | Hono on `Bun.serve`, the oRPC router, the session and role checks, `getTestApp()`.                            | everything above                    |
-| `apps/shop-web`         | TanStack Start pages.                                                                                         | `api-contract`, `domain`            |
+| Package                 | What it holds                                                                                                                                                                     | May import                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `packages/domain`       | Pure types and functions: money in minor units, products, roles, and the cart, pricing, discount, promotion, coupon and stock rules. No I/O, no Effect services, no dependencies. | nothing                             |
+| `packages/application`  | Use cases written in Effect and the ports they need (repositories, `CheckoutStore`, `SessionReader`).                                                                             | `domain`                            |
+| `packages/api-contract` | The oRPC contract (procedures, outputs, error codes) and its schemas.                                                                                                             | `domain`                            |
+| `packages/infra-db`     | The drizzle schema, migrations, seed, and repository implementations as Effect layers.                                                                                            | `application`, `domain`             |
+| `packages/infra-auth`   | better-auth over the same SQLite file, the `SessionReader` adapter, the demo users.                                                                                               | `application`, `domain`, `infra-db` |
+| `apps/shop-api`         | Hono on `Bun.serve`, the oRPC router, the session and role checks, `getTestApp()`.                                                                                                | everything above                    |
+| `apps/shop-web`         | TanStack Start pages.                                                                                                                                                             | `api-contract`, `domain`            |
 
 ## Rules of the road
 
@@ -41,7 +41,10 @@ flowchart LR
   client from it; the api implements it. Everything else crosses the wire as JSON.
 - The api decides who may do what: roles are checked in `application` (`requireAdmin`) and enforced
   in the router. Hiding a page in the web app is a convenience, never a control.
-- The web app never computes a price the api trusts. It shows what the api returns.
+- The web app never computes a price the api trusts. It shows what the api returns. The checkout
+  contract has no price or total field, and totals come only from `priceCart` in `domain`.
+- A checkout is one transaction behind the `CheckoutStore` port: use cases decide, the adapter only
+  makes the steps all-or-nothing. See [cart and checkout](features/checkout.md).
 
 ## Data
 
@@ -52,8 +55,9 @@ in the same file and are created by one migration set in `packages/infra-db/driz
 - Money is an integer in minor units (1999 is 19.99). Dates are integers (milliseconds since the
   epoch).
 - `bun run db:reset` deletes the file, applies the migrations with drizzle's `bun-sqlite` migrator,
-  and seeds the demo catalog and users.
-- To change the schema, edit `packages/infra-db/src/schema.ts` and run `bun run db:generate`.
+  and seeds the demo catalog, promotions, coupons and users.
+- To change the schema, edit `packages/infra-db/src/schema.ts` and run `bun run db:generate`. A
+  change is always a new migration file; an applied one is never edited.
 
 ## Authentication
 
@@ -71,4 +75,4 @@ server forwards `/rpc` and `/api` to the api, so the session cookie is same-orig
 - Tests import their fixtures and never read inputs with `node:fs`, because `bun test --changed`
   follows imports and would miss a file that is only read at run time.
 - CI shards the suite by the timings in `.bun-test-timings.json`. A pull request runs only the tests
-  affected by its changes (everything, when it touches migrations, any `package.json`, `bun.lock` or `.env.example`); `main` runs everything and refreshes the timings.
+  affected by its changes (everything, when it touches migrations, any `package.json`, `bun.lock`, `.env.example` or a workflow); `main` runs everything and refreshes the timings.
