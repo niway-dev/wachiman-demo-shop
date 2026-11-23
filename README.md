@@ -75,11 +75,14 @@ attention to the paths in [`.wachiman.yml`](.wachiman.yml): authentication and c
 (critical) and pricing (high).
 
 The workflow in `.github/workflows/review.yml` runs only for pull requests from a branch of this
-repository opened by the owner or a member. A pull request from a fork gets no review and no
-secret.
+repository opened by the owner. A pull request from a fork gets no review and no secret.
 
-To turn it on, set the repository secret `ANTHROPIC_API_KEY` in the repository settings, under
-Secrets and variables, Actions.
+To turn it on, the owner sets, in the repository settings under Secrets and variables, Actions:
+
+- the secret `ANTHROPIC_API_KEY`;
+- the variable `WACHIMAN_OPERATOR`, their GitHub login.
+
+Without the variable no review runs.
 
 ## License
 

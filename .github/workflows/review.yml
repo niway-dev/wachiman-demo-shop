@@ -3,7 +3,13 @@ name: Wachiman review
 # Why forks are excluded: the review runs with the owner's API key. GitHub never gives secrets to a
 # fork's pull request, and `pull_request_target` would hand them to code the fork controls, so this
 # workflow uses `on: pull_request` only, and the job also requires that the branch lives in this
-# repository and that the author is the owner or a member. scripts/review-workflow.test.ts pins both.
+# repository.
+#
+# Why the gate is the operator variable and not `author_association`: this repository belongs to an
+# organization whose members are private, and GitHub reports a private member as CONTRIBUTOR in event
+# payloads, so an OWNER/MEMBER check skips the owner's own pull requests. The repository variable
+# WACHIMAN_OPERATOR holds the owner's GitHub login; the job runs only for that author, and not at all
+# while the variable is empty. scripts/review-workflow.test.ts pins the gate.
 #
 # The `uses:` ref is an exact release tag, never a branch or the floating `v1`.
 on:
@@ -19,9 +25,10 @@ jobs:
   review:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(fromJSON('["OWNER","MEMBER"]'), github.event.pull_request.author_association)
+      vars.WACHIMAN_OPERATOR != '' &&
+      github.event.pull_request.user.login == vars.WACHIMAN_OPERATOR
     uses: niway-dev/wachiman/.github/workflows/review.yml@v1.19.0
     with:
-      operator: ${{ github.repository_owner }}
+      operator: ${{ vars.WACHIMAN_OPERATOR }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
