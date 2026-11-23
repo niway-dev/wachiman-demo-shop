@@ -26,7 +26,7 @@ permissions:
 jobs:
   review:
     if: github.event.pull_request.head.repo.full_name == github.repository
-    uses: niway-dev/wachiman/.github/workflows/review.yml@v1.19.0
+    uses: niway-dev/wachiman/.github/workflows/review.yml@v1.20.0
     with:
       operator: csdev19
     secrets:

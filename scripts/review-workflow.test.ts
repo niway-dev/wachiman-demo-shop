@@ -53,4 +53,17 @@ describe("review workflow (fork gate)", () => {
   test("pins an exact release tag", () => {
     expect(workflow.jobs.review?.uses).toMatch(/\.github\/workflows\/review\.yml@v\d+\.\d+\.\d+$/)
   })
+
+  test("pins release v1.20.0, the first with the comment rule", () => {
+    expect(workflow.jobs.review?.uses).toBe("niway-dev/wachiman/.github/workflows/review.yml@v1.20.0")
+  })
+})
+
+describe("wachiman config (comment rule)", () => {
+  test("turns on review.comments_point_to_docs", () => {
+    const config = Bun.YAML.parse(readFileSync(join(import.meta.dir, "..", ".wachiman.yml"), "utf8")) as {
+      review?: { comments_point_to_docs?: unknown }
+    }
+    expect(config.review?.comments_point_to_docs).toBe(true)
+  })
 })
