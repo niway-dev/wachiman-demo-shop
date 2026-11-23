@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v1
+title: Simplify price formatting in the cart
+files:
+  - apps/shop-web/src/routes/cart.tsx
+expected:
+  - file: apps/shop-web/src/routes/cart.tsx
+    lines: [14, 18]
+    must_mention: a plain number is passed to formatMoney, which takes the Money type; the code runs but does not type-check

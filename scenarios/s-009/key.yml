@@ -1,0 +1,9 @@
+kind: design
+baseline: baseline-v1
+title: Tidy the cart badge
+files:
+  - apps/shop-web/src/routes/__root.tsx
+expected:
+  - file: apps/shop-web/src/routes/__root.tsx
+    lines: [32, 37]
+    must_mention: the badge count is derived from the cart items but copied into state by an effect, which adds a render and can show a stale count; compute it during render

@@ -1,0 +1,7 @@
+kind: clean
+baseline: baseline-v1
+title: Move the stock table into its own component
+files:
+  - apps/shop-web/src/components/StockTable.tsx
+  - apps/shop-web/src/routes/admin.tsx
+expected: none

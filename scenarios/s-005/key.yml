@@ -1,0 +1,14 @@
+kind: defect
+baseline: baseline-v1
+title: Add an operations token to the api
+files:
+  - apps/shop-api/src/app.ts
+  - apps/shop-api/src/config.ts
+  - packages/infra-auth/src/session-reader.ts
+expected:
+  - file: apps/shop-api/src/config.ts
+    lines: [13, 14]
+    must_mention: a hard-coded fallback token committed in source
+  - file: packages/infra-auth/src/session-reader.ts
+    lines: [11, 18]
+    must_mention: a request header equal to a static token is accepted as an admin session and skips the real session check

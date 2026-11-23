@@ -1,0 +1,63 @@
+diff --git a/apps/shop-web/src/routes/cart.tsx b/apps/shop-web/src/routes/cart.tsx
+index 9e7885f..5894be8 100644
+--- a/apps/shop-web/src/routes/cart.tsx
++++ b/apps/shop-web/src/routes/cart.tsx
+@@ -36,6 +36,7 @@ function Cart() {
+       const order = await api.cart.checkout({
+         lines: [...cart.items],
+         couponCode: couponCode.trim() || undefined,
++        totalMinor: quote.status === "ready" ? quote.quote.totalMinor : undefined,
+       })
+       cart.clear()
+       setCouponCode("")
+diff --git a/packages/api-contract/src/index.ts b/packages/api-contract/src/index.ts
+index bd40f3e..987cfb3 100644
+--- a/packages/api-contract/src/index.ts
++++ b/packages/api-contract/src/index.ts
+@@ -99,6 +99,8 @@ export const CartInputSchema = z.object({
+     )
+     .max(100),
+   couponCode: z.string().max(40).optional(),
++  /** The total the customer saw in the last quote, in minor units. */
++  totalMinor: z.number().int().nonnegative().optional(),
+ })
+ 
+ const QuoteLineSchema = z.object({
+diff --git a/packages/application/src/checkout.ts b/packages/application/src/checkout.ts
+index fa310f9..d9fa031 100644
+--- a/packages/application/src/checkout.ts
++++ b/packages/application/src/checkout.ts
+@@ -2,6 +2,7 @@ import {
+   type Cart,
+   type CartLine,
+   type OfferedCoupon,
++  money,
+   nextRedemptionCount,
+   nextStock,
+   priceCart,
+@@ -26,6 +27,7 @@ import { requireSession } from "./session.ts"
+ export interface CartInput {
+   readonly lines: readonly { readonly productId: string; readonly quantity: number }[]
+   readonly couponCode?: string | undefined
++  readonly totalMinor?: number | undefined
+ }
+ 
+ /** Codes are stored upper-case; a blank code means "no coupon". */
+@@ -136,13 +138,15 @@ export const checkout = (headers: Headers, input: CartInput) =>
+           yield* tx.saveStock(line.productId, next.value)
+         }
+ 
++        // The customer is charged the total they saw in the last quote.
++        const total = input.totalMinor === undefined ? priced.total : money(input.totalMinor)
+         const order: NewOrder = {
+           id: crypto.randomUUID(),
+           userId: session.userId,
+           createdAt: now,
+           subtotal: priced.subtotal,
+-          discount: subtract(priced.subtotal, priced.total),
+-          total: priced.total,
++          discount: subtract(priced.subtotal, total),
++          total,
+           couponCode: appliedCoupon?.code ?? null,
+           lines: cart.lines.map((line, index) => ({
+             productId: line.productId,

@@ -1,0 +1,71 @@
+diff --git a/apps/shop-web/src/components/StockTable.tsx b/apps/shop-web/src/components/StockTable.tsx
+new file mode 100644
+index 0000000..91a0cb5
+--- /dev/null
++++ b/apps/shop-web/src/components/StockTable.tsx
+@@ -0,0 +1,26 @@
++import type { CountersDto } from "@demo-shop/api-contract"
++
++/** Units in stock per product, as the api counted them. */
++export function StockTable({ stock }: { stock: CountersDto["stock"] }) {
++  return (
++    <section>
++      <h2>Stock</h2>
++      <table>
++        <thead>
++          <tr>
++            <th>Product</th>
++            <th className="num">Units in stock</th>
++          </tr>
++        </thead>
++        <tbody>
++          {stock.map((row) => (
++            <tr key={row.productId}>
++              <td>{row.name}</td>
++              <td className="num">{row.stock}</td>
++            </tr>
++          ))}
++        </tbody>
++      </table>
++    </section>
++  )
++}
+diff --git a/apps/shop-web/src/routes/admin.tsx b/apps/shop-web/src/routes/admin.tsx
+index b4fdc71..d4d88a8 100644
+--- a/apps/shop-web/src/routes/admin.tsx
++++ b/apps/shop-web/src/routes/admin.tsx
+@@ -2,6 +2,7 @@ import { Link, createFileRoute, useRouter } from "@tanstack/react-router"
+ import { useState } from "react"
+ import { AdminCoupons } from "../components/AdminCoupons.tsx"
+ import { AdminPromotions } from "../components/AdminPromotions.tsx"
++import { StockTable } from "../components/StockTable.tsx"
+ import { api, statusOf } from "../lib/api.ts"
+ 
+ export const Route = createFileRoute("/admin")({
+@@ -64,25 +65,7 @@ function Admin() {
+       </p>
+       {error ? <p className="error">{error}</p> : null}
+ 
+-      <section>
+-        <h2>Stock</h2>
+-        <table>
+-          <thead>
+-            <tr>
+-              <th>Product</th>
+-              <th className="num">Units in stock</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {counters.stock.map((row) => (
+-              <tr key={row.productId}>
+-                <td>{row.name}</td>
+-                <td className="num">{row.stock}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
+-      </section>
++      <StockTable stock={counters.stock} />
+ 
+       <AdminPromotions promotions={data.promotions} refresh={refresh} fail={setError} />
+       <AdminCoupons coupons={data.coupons} refresh={refresh} fail={setError} />

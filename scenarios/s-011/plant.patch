@@ -1,0 +1,25 @@
+diff --git a/packages/domain/src/promotion.ts b/packages/domain/src/promotion.ts
+index 55e8d9d..0653861 100644
+--- a/packages/domain/src/promotion.ts
++++ b/packages/domain/src/promotion.ts
+@@ -51,12 +51,15 @@ export function bestLinePromotion(
+   unitPrice: Money,
+   quantity: number,
+ ): LinePromotionResult | null {
+-  let best: LinePromotionResult | null = null
++  let winner: LinePromotionResult | null = null
+   for (const promotion of promotions) {
+     const discount = promotionDiscount(promotion, unitPrice, quantity)
+-    if (discount > 0 && (best === null || discount > best.discount)) {
+-      best = { promotionId: promotion.id, discount }
+-    }
++    if (beatsWinner(discount, winner)) winner = { promotionId: promotion.id, discount }
+   }
+-  return best
++  return winner
++}
++
++/** A discount takes the line only when it is above 0 and strictly larger than the current winner's. */
++function beatsWinner(discount: Money, winner: LinePromotionResult | null): boolean {
++  return discount > 0 && (winner === null || discount > winner.discount)
+ }

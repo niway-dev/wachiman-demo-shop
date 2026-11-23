@@ -1,0 +1,19 @@
+diff --git a/apps/shop-web/src/routes/cart.tsx b/apps/shop-web/src/routes/cart.tsx
+index 9e7885f..96fbfc0 100644
+--- a/apps/shop-web/src/routes/cart.tsx
++++ b/apps/shop-web/src/routes/cart.tsx
+@@ -1,4 +1,4 @@
+-import { formatMoney, money } from "@demo-shop/domain"
++import { formatMoney } from "@demo-shop/domain"
+ import { Link, createFileRoute } from "@tanstack/react-router"
+ import { useState } from "react"
+ import { api } from "../lib/api.ts"
+@@ -13,7 +13,7 @@ export const Route = createFileRoute("/cart")({
+   component: Cart,
+ })
+ 
+-const show = (minor: number) => formatMoney(money(minor))
++const show = (minor: number) => formatMoney(minor)
+ 
+ function Cart() {
+   const products = Route.useLoaderData()

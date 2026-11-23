@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v1
+title: Simplify the counters access check
+files:
+  - packages/application/src/counters.ts
+expected:
+  - file: packages/application/src/counters.ts
+    lines: [4, 13]
+    must_mention: the counters use case now only requires a session, so a signed-in customer can read admin data; the admin role check is gone from the api

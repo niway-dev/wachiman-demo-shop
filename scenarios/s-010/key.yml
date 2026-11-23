@@ -1,0 +1,7 @@
+kind: routing
+baseline: baseline-v1
+title: Adjust session settings
+files:
+  - packages/infra-auth/src/auth.ts
+expected: none
+expected_risk: critical

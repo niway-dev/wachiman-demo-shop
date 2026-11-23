@@ -1,0 +1,6 @@
+kind: clean
+baseline: baseline-v1
+title: Update catalog copy
+files:
+  - apps/shop-web/src/routes/index.tsx
+expected: none

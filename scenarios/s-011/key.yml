@@ -1,0 +1,6 @@
+kind: clean
+baseline: baseline-v1
+title: Tidy promotion helpers
+files:
+  - packages/domain/src/promotion.ts
+expected: none

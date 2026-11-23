@@ -1,0 +1,22 @@
+diff --git a/packages/application/src/counters.ts b/packages/application/src/counters.ts
+index db6d7f5..864b42e 100644
+--- a/packages/application/src/counters.ts
++++ b/packages/application/src/counters.ts
+@@ -1,7 +1,7 @@
+ import { Effect } from "effect"
+ import { CouponRepository, OrderRepository, PromotionRepository } from "./ports.ts"
+ import { listProducts } from "./products.ts"
+-import { requireAdmin } from "./session.ts"
++import { requireSession } from "./session.ts"
+ 
+ /**
+  * Use case (admin): the shop's counters. Units in stock per product, the
+@@ -9,7 +9,7 @@ import { requireAdmin } from "./session.ts"
+  */
+ export const getCounters = (headers: Headers) =>
+   Effect.gen(function* () {
+-    yield* requireAdmin(headers)
++    yield* requireSession(headers)
+     const products = yield* listProducts()
+     const promotions = yield* (yield* PromotionRepository).list()
+     const coupons = yield* (yield* CouponRepository).list()

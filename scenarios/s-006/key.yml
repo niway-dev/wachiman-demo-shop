@@ -1,0 +1,11 @@
+kind: defect
+baseline: baseline-v1
+title: Keep product names in the cart
+files:
+  - apps/shop-web/package.json
+  - apps/shop-web/src/routes/cart.tsx
+  - bun.lock
+expected:
+  - file: apps/shop-web/src/routes/cart.tsx
+    lines: [2, 31]
+    must_mention: the web app imports a server-only package (infra-db, which opens the SQLite database and holds seed data) into a client route

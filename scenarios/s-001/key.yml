@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v1
+title: Update cart pricing
+files:
+  - packages/domain/src/discount.ts
+expected:
+  - file: packages/domain/src/discount.ts
+    lines: [52, 57]
+    must_mention: a subtotal of exactly 10000 no longer gets the discount, contradicting "at least 10000"

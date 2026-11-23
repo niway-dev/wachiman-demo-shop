@@ -1,0 +1,26 @@
+diff --git a/apps/shop-web/src/routes/__root.tsx b/apps/shop-web/src/routes/__root.tsx
+index 0e4ec51..a32865a 100644
+--- a/apps/shop-web/src/routes/__root.tsx
++++ b/apps/shop-web/src/routes/__root.tsx
+@@ -1,6 +1,6 @@
+ import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router"
+-import type { ReactNode } from "react"
+-import { useCart } from "../lib/cart.ts"
++import { type ReactNode, useEffect, useState } from "react"
++import { itemCount, useCart } from "../lib/cart.ts"
+ import appCss from "../styles.css?url"
+ 
+ export const Route = createRootRoute({
+@@ -29,7 +29,11 @@ function NotFound() {
+ 
+ /** The cart link with the number of units in the cart (hidden while the cart is empty). */
+ function CartLink() {
+-  const { count } = useCart()
++  const { items } = useCart()
++  const [count, setCount] = useState(0)
++  useEffect(() => {
++    setCount(itemCount(items))
++  }, [items])
+   return (
+     <Link to="/cart">
+       Cart

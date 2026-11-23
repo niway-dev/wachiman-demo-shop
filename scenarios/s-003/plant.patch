@@ -1,0 +1,28 @@
+diff --git a/packages/application/src/checkout.ts b/packages/application/src/checkout.ts
+index fa310f9..88fa6bd 100644
+--- a/packages/application/src/checkout.ts
++++ b/packages/application/src/checkout.ts
+@@ -2,6 +2,7 @@ import {
+   type Cart,
+   type CartLine,
+   type OfferedCoupon,
++  type Product,
+   nextRedemptionCount,
+   nextStock,
+   priceCart,
+@@ -59,12 +60,12 @@ export const priceOrder = (
+   now: number,
+ ) =>
+   Effect.gen(function* () {
+-    const found = yield* reader.products(lines.map((line) => line.productId))
+-    const byId = new Map(found.map((product) => [product.id, product]))
++    const byId = new Map<string, Product>()
+     const cartLines: CartLine[] = []
+     for (const line of lines) {
+-      const product = byId.get(line.productId)
++      const [product] = yield* reader.products([line.productId])
+       if (product === undefined) return yield* new ProductNotFound({ productId: line.productId })
++      byId.set(product.id, product)
+       cartLines.push({ productId: product.id, unitPrice: product.price, quantity: line.quantity })
+     }
+     const cart: Cart = { lines: cartLines }

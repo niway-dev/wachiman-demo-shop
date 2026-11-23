@@ -1,0 +1,14 @@
+kind: defect
+baseline: baseline-v1
+title: Send the displayed total with checkout
+files:
+  - apps/shop-web/src/routes/cart.tsx
+  - packages/api-contract/src/index.ts
+  - packages/application/src/checkout.ts
+expected:
+  - file: packages/application/src/checkout.ts
+    lines: [141, 143]
+    must_mention: the order is stored with the total sent by the client instead of the total computed by priceCart, so a customer can pay any amount
+  - file: packages/api-contract/src/index.ts
+    lines: [101, 104]
+    must_mention: the checkout input now accepts a client-supplied total, against the contract's rule that totals come only from the server

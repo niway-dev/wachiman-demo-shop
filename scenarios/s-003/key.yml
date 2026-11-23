@@ -1,0 +1,9 @@
+kind: design
+baseline: baseline-v1
+title: Look up products line by line when pricing an order
+files:
+  - packages/application/src/checkout.ts
+expected:
+  - file: packages/application/src/checkout.ts
+    lines: [63, 69]
+    must_mention: one products query per cart line instead of one query for all ids (N+1 reads on every quote and checkout)
