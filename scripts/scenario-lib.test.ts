@@ -617,22 +617,33 @@ describe("report.ts run", () => {
     return file
   }
 
-  test("a reviewer that prints {} is a run failure and a failed rerun drops the old result", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "report-run-"))
-    try {
-      const data = join(dir, "data")
-      const out = join(data, "demo-shop", "lbl")
-      mkdirSync(out, { recursive: true })
-      const stale = join(out, "s-001.json")
-      writeFileSync(stale, JSON.stringify(sample))
-      const bad = await runReport(fakeReviewer(dir, "bad.sh", "{}"), "lbl", data)
-      expect(bad.code).toBe(1)
-      expect(bad.stdout).toContain("RUN FAILED")
-      expect(existsSync(stale)).toBe(false)
-      const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"))
-      expect(summary.scenarios[0].status).toBe("run-failed")
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  }, 60_000)
+  // Needs the `scenarios` branch and the baseline tag; CI checks out neither, so it runs only locally.
+  const hasScenarioRefs = ["refs/heads/scenarios", "refs/tags/baseline-v1"].every(
+    (ref) =>
+      Bun.spawnSync(["git", "rev-parse", "--verify", "--quiet", ref], { cwd: import.meta.dir })
+        .exitCode === 0,
+  )
+
+  test.skipIf(!hasScenarioRefs)(
+    "a reviewer that prints {} is a run failure and a failed rerun drops the old result",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "report-run-"))
+      try {
+        const data = join(dir, "data")
+        const out = join(data, "demo-shop", "lbl")
+        mkdirSync(out, { recursive: true })
+        const stale = join(out, "s-001.json")
+        writeFileSync(stale, JSON.stringify(sample))
+        const bad = await runReport(fakeReviewer(dir, "bad.sh", "{}"), "lbl", data)
+        expect(bad.code).toBe(1)
+        expect(bad.stdout).toContain("RUN FAILED")
+        expect(existsSync(stale)).toBe(false)
+        const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"))
+        expect(summary.scenarios[0].status).toBe("run-failed")
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    },
+    60_000,
+  )
 })

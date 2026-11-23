@@ -27,7 +27,8 @@ Moves this checkout to the local branch work/<tag> at <tag> and resets the datab
 
   1. refuses if the working tree has any uncommitted or untracked change;
   2. creates or resets the local branch work/<tag> at the tag (git checkout -B), and refuses when
-     that would drop commits already on it, unless you pass --force;
+     that would drop commits already on it, or when HEAD is detached on commits that no branch or
+     tag holds, unless you pass --force;
   3. runs bun install --frozen-lockfile and bun run db:reset.
 
 Never touches main or any other branch, and never pushes.`
