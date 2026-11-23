@@ -1,5 +1,5 @@
 kind: design
-baseline: baseline-v2
+baseline: baseline-v3
 title: Explain the money helpers in comments
 files:
   - packages/domain/src/money.ts
