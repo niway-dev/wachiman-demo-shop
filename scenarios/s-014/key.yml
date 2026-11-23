@@ -1,0 +1,29 @@
+kind: defect
+baseline: baseline-v2
+title: Reorganize the domain pricing modules
+files:
+  - packages/domain/src/cart.test.ts
+  - packages/domain/src/cart.ts
+  - packages/domain/src/coupon.test.ts
+  - packages/domain/src/coupon.ts
+  - packages/domain/src/discount.test.ts
+  - packages/domain/src/discount.ts
+  - packages/domain/src/index.ts
+  - packages/domain/src/pricing.test.ts
+  - packages/domain/src/pricing.ts
+  - packages/domain/src/pricing/cart.test.ts
+  - packages/domain/src/pricing/cart.ts
+  - packages/domain/src/pricing/coupon.test.ts
+  - packages/domain/src/pricing/coupon.ts
+  - packages/domain/src/pricing/discount.test.ts
+  - packages/domain/src/pricing/discount.ts
+  - packages/domain/src/pricing/pricing.test.ts
+  - packages/domain/src/pricing/pricing.ts
+  - packages/domain/src/pricing/promotion.test.ts
+  - packages/domain/src/pricing/promotion.ts
+  - packages/domain/src/promotion.test.ts
+  - packages/domain/src/promotion.ts
+expected:
+  - file: packages/domain/src/pricing/promotion.ts
+    lines: [17, 21]
+    must_mention: a buy-two-get-one line now grants at most two free units (MAX_FREE_UNITS_PER_LINE = 2), so 9 units get two free instead of three; this is a pricing behavior change hidden in a move

@@ -1,0 +1,9 @@
+kind: design
+baseline: baseline-v2
+title: Clarify coupon rules in the docs
+files:
+  - docs/features/stacking.md
+expected:
+  - file: docs/features/stacking.md
+    lines: [12, 14]
+    must_mention: the page now says the spend threshold looks at the subtotal after the coupon, but priceCart in packages/domain/src/pricing.ts passes the subtotal before the coupon to thresholdDiscount, so the coupon does not reduce it

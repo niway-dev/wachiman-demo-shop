@@ -1,0 +1,1451 @@
+diff --git a/packages/domain/src/cart.test.ts b/packages/domain/src/cart.test.ts
+deleted file mode 100644
+index f9c8c8f..0000000
+--- a/packages/domain/src/cart.test.ts
++++ /dev/null
+@@ -1,17 +0,0 @@
+-import { describe, expect, test } from "bun:test"
+-import { assertQuantity, lineSubtotal } from "./cart.ts"
+-import { money } from "./money.ts"
+-
+-describe("cart", () => {
+-  test("line subtotal is unit price times quantity", () => {
+-    expect(lineSubtotal({ productId: "a", unitPrice: money(1999), quantity: 3 })).toBe(
+-      5997 as never,
+-    )
+-  })
+-  test("quantity 0, negative or fractional is rejected", () => {
+-    for (const q of [0, -1, 1.5, Number.NaN]) expect(() => assertQuantity(q)).toThrow(RangeError)
+-    expect(() => lineSubtotal({ productId: "a", unitPrice: money(100), quantity: 0 })).toThrow(
+-      RangeError,
+-    )
+-  })
+-})
+diff --git a/packages/domain/src/cart.ts b/packages/domain/src/cart.ts
+deleted file mode 100644
+index e1767df..0000000
+--- a/packages/domain/src/cart.ts
++++ /dev/null
+@@ -1,28 +0,0 @@
+-import { type Money, multiply } from "./money.ts"
+-
+-/** One line of a cart: a product at a unit price and a quantity. */
+-export interface CartLine {
+-  readonly productId: string
+-  readonly unitPrice: Money
+-  readonly quantity: number
+-}
+-
+-export interface Cart {
+-  readonly lines: readonly CartLine[]
+-}
+-
+-/** Rule: a quantity is a positive whole number; 0, negatives and fractions throw a RangeError. */
+-export function assertQuantity(quantity: number): void {
+-  if (!Number.isInteger(quantity) || quantity <= 0) {
+-    throw new RangeError(`Quantity must be a positive integer, got ${quantity}`)
+-  }
+-}
+-
+-/**
+- * Rule: a line's subtotal is its unit price times its quantity, before any
+- * discount. Throws a RangeError when the quantity is not a positive integer.
+- */
+-export function lineSubtotal(line: CartLine): Money {
+-  assertQuantity(line.quantity)
+-  return multiply(line.unitPrice, line.quantity)
+-}
+diff --git a/packages/domain/src/coupon.test.ts b/packages/domain/src/coupon.test.ts
+deleted file mode 100644
+index bb08ee7..0000000
+--- a/packages/domain/src/coupon.test.ts
++++ /dev/null
+@@ -1,58 +0,0 @@
+-import { describe, expect, test } from "bun:test"
+-import { type Coupon, couponDiscount, validateCoupon } from "./coupon.ts"
+-import { money } from "./money.ts"
+-
+-const coupon: Coupon = {
+-  code: "SAVE",
+-  discount: { kind: "fixed", amount: money(500) },
+-  usageLimit: 3,
+-  expiresAt: 1_000,
+-}
+-
+-describe("validateCoupon", () => {
+-  test("a valid coupon is ok", () => {
+-    expect(validateCoupon(coupon, { redemptions: 0, now: 999 })).toEqual({ ok: true, coupon })
+-  })
+-  test("expiry is exclusive: valid 1 ms before, expired at exactly expiresAt", () => {
+-    expect(validateCoupon(coupon, { redemptions: 0, now: 999 }).ok).toBe(true)
+-    expect(validateCoupon(coupon, { redemptions: 0, now: 1_000 })).toEqual({
+-      ok: false,
+-      reason: "expired",
+-    })
+-  })
+-  test("the limit is reached exactly when redemptions equals it", () => {
+-    expect(validateCoupon(coupon, { redemptions: 2, now: 0 }).ok).toBe(true)
+-    expect(validateCoupon(coupon, { redemptions: 3, now: 0 })).toEqual({
+-      ok: false,
+-      reason: "exhausted",
+-    })
+-  })
+-  test("unknown coupon is not_found", () => {
+-    expect(validateCoupon(undefined, { redemptions: 0, now: 0 })).toEqual({
+-      ok: false,
+-      reason: "not_found",
+-    })
+-  })
+-  test("a second coupon on an order is already_applied", () => {
+-    expect(validateCoupon(coupon, { redemptions: 0, now: 0, orderHasCoupon: true })).toEqual({
+-      ok: false,
+-      reason: "already_applied",
+-    })
+-  })
+-  test("expired is reported before exhausted", () => {
+-    expect(validateCoupon(coupon, { redemptions: 9, now: 2_000 })).toEqual({
+-      ok: false,
+-      reason: "expired",
+-    })
+-  })
+-})
+-
+-describe("couponDiscount", () => {
+-  test("fixed coupon is capped at the base", () => {
+-    expect(couponDiscount({ kind: "fixed", amount: money(500) }, money(1999))).toBe(500 as never)
+-    expect(couponDiscount({ kind: "fixed", amount: money(500) }, money(300))).toBe(300 as never)
+-  })
+-  test("percentage coupon uses the percentage rounding rule", () => {
+-    expect(couponDiscount({ kind: "percentage", percent: 10 }, money(1999))).toBe(200 as never)
+-  })
+-})
+diff --git a/packages/domain/src/coupon.ts b/packages/domain/src/coupon.ts
+deleted file mode 100644
+index a855417..0000000
+--- a/packages/domain/src/coupon.ts
++++ /dev/null
+@@ -1,66 +0,0 @@
+-import { fixedDiscount, percentageDiscount } from "./discount.ts"
+-import type { Money } from "./money.ts"
+-
+-/** What a coupon takes off the cart: a percentage or a fixed amount. */
+-export type CouponDiscount =
+-  | { readonly kind: "percentage"; readonly percent: number }
+-  | { readonly kind: "fixed"; readonly amount: Money }
+-
+-/**
+- * A coupon. `usageLimit` is the most redemptions allowed in total and
+- * `expiresAt` is an instant in milliseconds since the epoch.
+- */
+-export interface Coupon {
+-  readonly code: string
+-  readonly discount: CouponDiscount
+-  readonly usageLimit: number
+-  readonly expiresAt: number
+-}
+-
+-export type CouponRejection = "not_found" | "expired" | "exhausted" | "already_applied"
+-
+-export type CouponValidation =
+-  | { readonly ok: true; readonly coupon: Coupon }
+-  | { readonly ok: false; readonly reason: CouponRejection }
+-
+-export interface CouponCheck {
+-  /** Redemptions already counted for this coupon. */
+-  readonly redemptions: number
+-  /** The current instant in milliseconds since the epoch. */
+-  readonly now: number
+-  /** True when the order already carries a coupon: at most one per order. */
+-  readonly orderHasCoupon?: boolean
+-}
+-
+-/**
+- * Rule: a coupon is usable only when all of these hold, checked in this order
+- * and reported as the first failing reason:
+- * 1. a coupon exists (`undefined` is "not_found");
+- * 2. the order has no coupon yet (otherwise "already_applied");
+- * 3. it has not expired: expiry is EXCLUSIVE of the instant `expiresAt`, so
+- *    when `now >= expiresAt` the result is "expired" and one millisecond
+- *    earlier it is still valid;
+- * 4. it is not exhausted: when `redemptions >= usageLimit` the result is
+- *    "exhausted", so the last allowed redemption is the one that makes the
+- *    count equal the limit.
+- * Otherwise the result is `{ ok: true, coupon }`.
+- */
+-export function validateCoupon(coupon: Coupon | undefined, check: CouponCheck): CouponValidation {
+-  if (coupon === undefined) return { ok: false, reason: "not_found" }
+-  if (check.orderHasCoupon === true) return { ok: false, reason: "already_applied" }
+-  if (check.now >= coupon.expiresAt) return { ok: false, reason: "expired" }
+-  if (check.redemptions >= coupon.usageLimit) return { ok: false, reason: "exhausted" }
+-  return { ok: true, coupon }
+-}
+-
+-/**
+- * Rule: the discount a coupon takes off `base` (the cart subtotal after line
+- * discounts). A percentage coupon uses the percentage rounding rule; a fixed
+- * coupon takes its amount but never more than `base`. The result never
+- * exceeds `base`.
+- */
+-export function couponDiscount(discount: CouponDiscount, base: Money): Money {
+-  return discount.kind === "fixed"
+-    ? fixedDiscount(base, discount.amount)
+-    : percentageDiscount(base, discount.percent)
+-}
+diff --git a/packages/domain/src/discount.test.ts b/packages/domain/src/discount.test.ts
+deleted file mode 100644
+index 65b4f88..0000000
+--- a/packages/domain/src/discount.test.ts
++++ /dev/null
+@@ -1,59 +0,0 @@
+-import { describe, expect, test } from "bun:test"
+-import {
+-  applyDiscount,
+-  fixedDiscount,
+-  floorAtZero,
+-  percentageDiscount,
+-  thresholdDiscount,
+-} from "./discount.ts"
+-import { money } from "./money.ts"
+-
+-const m = money
+-
+-describe("percentageDiscount", () => {
+-  test("10% off 1999 takes 200 off, so the customer pays 1799", () => {
+-    const off = percentageDiscount(m(1999), 10)
+-    expect(off).toBe(200 as never)
+-    expect(1999 - off).toBe(1799)
+-  })
+-  test("an exact half rounds up", () => {
+-    expect(percentageDiscount(m(1995), 10)).toBe(200 as never)
+-    expect(percentageDiscount(m(1994), 10)).toBe(199 as never)
+-  })
+-  test("0% takes nothing and 100% takes everything", () => {
+-    expect(percentageDiscount(m(1999), 0)).toBe(0 as never)
+-    expect(percentageDiscount(m(1999), 100)).toBe(1999 as never)
+-  })
+-  test("rejects a bad percent or a negative amount", () => {
+-    expect(() => percentageDiscount(m(100), -1)).toThrow(RangeError)
+-    expect(() => percentageDiscount(m(100), 101)).toThrow(RangeError)
+-    expect(() => percentageDiscount(m(100), 12.5)).toThrow(RangeError)
+-    expect(() => percentageDiscount(m(-100), 10)).toThrow(RangeError)
+-  })
+-})
+-
+-describe("fixedDiscount", () => {
+-  test("500 off 1999 is 500", () => {
+-    expect(fixedDiscount(m(1999), m(500))).toBe(500 as never)
+-  })
+-  test("never more than the amount", () => {
+-    expect(fixedDiscount(m(300), m(500))).toBe(300 as never)
+-    expect(applyDiscount(m(300), fixedDiscount(m(300), m(500)))).toBe(0 as never)
+-  })
+-})
+-
+-describe("thresholdDiscount", () => {
+-  test("exactly 10000 qualifies, 9999 does not", () => {
+-    expect(thresholdDiscount(m(10000))).toBe(1000 as never)
+-    expect(thresholdDiscount(m(9999))).toBe(0 as never)
+-    expect(thresholdDiscount(m(0))).toBe(0 as never)
+-  })
+-})
+-
+-describe("floor", () => {
+-  test("a total never goes below 0", () => {
+-    expect(floorAtZero(m(-5))).toBe(0 as never)
+-    expect(floorAtZero(m(5))).toBe(5 as never)
+-    expect(applyDiscount(m(100), m(250))).toBe(0 as never)
+-  })
+-})
+diff --git a/packages/domain/src/discount.ts b/packages/domain/src/discount.ts
+deleted file mode 100644
+index c59739e..0000000
+--- a/packages/domain/src/discount.ts
++++ /dev/null
+@@ -1,70 +0,0 @@
+-import { type Money, money, subtract } from "./money.ts"
+-
+-/** Rule: a percentage is a whole number from 0 to 100 inclusive; anything else throws a RangeError. */
+-export function assertPercent(percent: number): void {
+-  if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
+-    throw new RangeError(`Percent must be an integer from 0 to 100, got ${percent}`)
+-  }
+-}
+-
+-/**
+- * Rule: the amount taken off by a percentage discount is `amount * percent / 100`
+- * rounded to the nearest minor unit, with an exact half rounded UP (away from
+- * zero for the non-negative amounts used here). The customer therefore pays
+- * `amount - discount`. Example: 10% off 1999 is 199.9, which rounds to 200 off,
+- * so the customer pays 1799. 10% off 1995 is exactly 199.5, which rounds up to
+- * 200. Integer arithmetic only. Throws a RangeError for a negative amount or a
+- * percent outside 0..100.
+- */
+-export function percentageDiscount(amount: Money, percent: number): Money {
+-  assertPercent(percent)
+-  if (amount < 0) {
+-    throw new RangeError(`Amount must not be negative, got ${amount}`)
+-  }
+-  return money(Math.floor((amount * percent + 50) / 100))
+-}
+-
+-/**
+- * Rule: a fixed discount takes `off` minor units from `amount` but never more
+- * than `amount`, so the result of applying it is never below 0. This returns
+- * the discount actually applied: `min(off, amount)`. Example: 500 off 1999 is
+- * 500; 500 off 300 is 300. Throws a RangeError if either value is negative.
+- */
+-export function fixedDiscount(amount: Money, off: Money): Money {
+-  if (amount < 0 || off < 0) {
+-    throw new RangeError("Amount and discount must not be negative")
+-  }
+-  return money(Math.min(amount, off))
+-}
+-
+-/** The spend threshold in minor units: 100.00. */
+-export const SPEND_THRESHOLD: Money = money(10000)
+-
+-/** The discount granted when the threshold is reached: 10.00. */
+-export const SPEND_THRESHOLD_DISCOUNT: Money = money(1000)
+-
+-/**
+- * Rule: when `subtotal` is at least 10000 (exactly 10000 qualifies, 9999 does
+- * not) the discount is 1000, otherwise 0. The caller passes the subtotal AFTER
+- * line discounts and BEFORE the coupon (see `priceCart`). Throws a RangeError
+- * for a negative subtotal.
+- */
+-export function thresholdDiscount(subtotal: Money): Money {
+-  if (subtotal < 0) {
+-    throw new RangeError(`Subtotal must not be negative, got ${subtotal}`)
+-  }
+-  return subtotal >= SPEND_THRESHOLD ? SPEND_THRESHOLD_DISCOUNT : money(0)
+-}
+-
+-/**
+- * Rule: a total never goes below 0. Returns `amount` when it is positive and
+- * 0 otherwise.
+- */
+-export function floorAtZero(amount: Money): Money {
+-  return amount < 0 ? money(0) : amount
+-}
+-
+-/** The amount left after taking `discount` off `amount`, floored at 0. */
+-export function applyDiscount(amount: Money, discount: Money): Money {
+-  return floorAtZero(subtract(amount, discount))
+-}
+diff --git a/packages/domain/src/index.ts b/packages/domain/src/index.ts
+index b7d829c..b1b7a5b 100644
+--- a/packages/domain/src/index.ts
++++ b/packages/domain/src/index.ts
+@@ -1,9 +1,9 @@
+ export * from "./money.ts"
+ export * from "./product.ts"
+ export * from "./role.ts"
+-export * from "./cart.ts"
+-export * from "./coupon.ts"
+-export * from "./discount.ts"
+-export * from "./pricing.ts"
+-export * from "./promotion.ts"
++export * from "./pricing/cart.ts"
++export * from "./pricing/coupon.ts"
++export * from "./pricing/discount.ts"
++export * from "./pricing/pricing.ts"
++export * from "./pricing/promotion.ts"
+ export * from "./stock.ts"
+diff --git a/packages/domain/src/pricing.test.ts b/packages/domain/src/pricing.test.ts
+deleted file mode 100644
+index 4e8f99a..0000000
+--- a/packages/domain/src/pricing.test.ts
++++ /dev/null
+@@ -1,133 +0,0 @@
+-import { describe, expect, test } from "bun:test"
+-import type { Coupon } from "./coupon.ts"
+-import { money } from "./money.ts"
+-import { priceCart } from "./pricing.ts"
+-import type { Promotion } from "./promotion.ts"
+-
+-const NOW = 1_000
+-const line = (productId: string, unit: number, quantity: number) => ({
+-  productId,
+-  unitPrice: money(unit),
+-  quantity,
+-})
+-const fixed500: Coupon = {
+-  code: "F",
+-  discount: { kind: "fixed", amount: money(500) },
+-  usageLimit: 5,
+-  expiresAt: 2_000,
+-}
+-const ten: Promotion = { id: "ten", kind: "percentage", percent: 10 }
+-const half: Promotion = { id: "half", kind: "percentage", percent: 50 }
+-const b2g1: Promotion = { id: "b2g1", kind: "buyTwoGetOne" }
+-
+-describe("priceCart", () => {
+-  test("empty cart totals 0", () => {
+-    const r = priceCart({ lines: [] }, [ten], null, NOW)
+-    expect(r.total).toBe(0 as never)
+-    expect(r.lines).toEqual([])
+-  })
+-
+-  test("no promotions: total is the subtotal", () => {
+-    const r = priceCart({ lines: [line("a", 1999, 2)] }, [], null, NOW)
+-    expect(r.subtotal).toBe(3998 as never)
+-    expect(r.total).toBe(3998 as never)
+-    expect(r.lines[0]?.promotionId).toBeNull()
+-  })
+-
+-  test("10% off 1999 prices the line at 1799", () => {
+-    const r = priceCart({ lines: [line("a", 1999, 1)] }, [ten], null, NOW)
+-    expect(r.lines[0]).toEqual({
+-      productId: "a",
+-      subtotal: 1999 as never,
+-      discount: 200 as never,
+-      promotionId: "ten",
+-    })
+-    expect(r.total).toBe(1799 as never)
+-  })
+-
+-  test("one line takes only the best promotion", () => {
+-    const r = priceCart({ lines: [line("a", 1000, 3)] }, [ten, half, b2g1], null, NOW)
+-    expect(r.lines[0]?.promotionId).toBe("half")
+-    expect(r.lineDiscountTotal).toBe(1500 as never)
+-    expect(r.total).toBe(1500 as never)
+-  })
+-
+-  test("order: line promotions, then coupon, then threshold", () => {
+-    // 2 x 6000 = 12000, 10% off -> 1200 off -> 10800.
+-    // coupon 500 off 10800; threshold sees 10800 (>= 10000) -> 1000 off. 10800 - 500 - 1000 = 9300.
+-    const r = priceCart(
+-      { lines: [line("a", 6000, 2)] },
+-      [ten],
+-      { coupon: fixed500, redemptions: 0 },
+-      NOW,
+-    )
+-    expect(r.discountedSubtotal).toBe(10800 as never)
+-    expect(r.couponDiscount).toBe(500 as never)
+-    expect(r.thresholdDiscount).toBe(1000 as never)
+-    expect(r.total).toBe(9300 as never)
+-  })
+-
+-  test("threshold looks at the subtotal after line discounts, not before", () => {
+-    // gross 10000 qualifies, but 10% off the line leaves 9000: no threshold.
+-    const r = priceCart({ lines: [line("a", 10000, 1)] }, [ten], null, NOW)
+-    expect(r.subtotal).toBe(10000 as never)
+-    expect(r.thresholdDiscount).toBe(0 as never)
+-    expect(r.total).toBe(9000 as never)
+-  })
+-
+-  test("threshold is not reduced by the coupon", () => {
+-    // 10000 after lines; coupon 500 would leave 9500, yet threshold still applies.
+-    const r = priceCart(
+-      { lines: [line("a", 10000, 1)] },
+-      [],
+-      { coupon: fixed500, redemptions: 0 },
+-      NOW,
+-    )
+-    expect(r.thresholdDiscount).toBe(1000 as never)
+-    expect(r.total).toBe(8500 as never)
+-  })
+-
+-  test("a fixed coupon larger than the subtotal floors the total at 0", () => {
+-    const r = priceCart(
+-      { lines: [line("a", 300, 1)] },
+-      [],
+-      { coupon: fixed500, redemptions: 0 },
+-      NOW,
+-    )
+-    expect(r.couponDiscount).toBe(300 as never)
+-    expect(r.total).toBe(0 as never)
+-  })
+-
+-  test("100% promotion gives a total of 0", () => {
+-    const free: Promotion = { id: "free", kind: "percentage", percent: 100 }
+-    expect(priceCart({ lines: [line("a", 1999, 1)] }, [free], null, NOW).total).toBe(0 as never)
+-  })
+-
+-  test("an expired, exhausted or unknown coupon takes off 0 and says why", () => {
+-    const cart = { lines: [line("a", 1000, 1)] }
+-    expect(priceCart(cart, [], { coupon: fixed500, redemptions: 0 }, 2_000).couponRejection).toBe(
+-      "expired",
+-    )
+-    expect(priceCart(cart, [], { coupon: fixed500, redemptions: 5 }, NOW).couponRejection).toBe(
+-      "exhausted",
+-    )
+-    const unknown = priceCart(cart, [], { coupon: undefined, redemptions: 0 }, NOW)
+-    expect(unknown.couponRejection).toBe("not_found")
+-    expect(unknown.total).toBe(1000 as never)
+-  })
+-
+-  test("a coupon expiring exactly at now is rejected", () => {
+-    const r = priceCart(
+-      { lines: [line("a", 1000, 1)] },
+-      [],
+-      { coupon: fixed500, redemptions: 0 },
+-      2_000,
+-    )
+-    expect(r.couponDiscount).toBe(0 as never)
+-  })
+-
+-  test("a line with quantity 0 or negative is rejected", () => {
+-    expect(() => priceCart({ lines: [line("a", 100, 0)] }, [], null, NOW)).toThrow(RangeError)
+-    expect(() => priceCart({ lines: [line("a", 100, -2)] }, [], null, NOW)).toThrow(RangeError)
+-  })
+-})
+diff --git a/packages/domain/src/pricing.ts b/packages/domain/src/pricing.ts
+deleted file mode 100644
+index ac5ff4c..0000000
+--- a/packages/domain/src/pricing.ts
++++ /dev/null
+@@ -1,100 +0,0 @@
+-import { type Cart, lineSubtotal } from "./cart.ts"
+-import {
+-  type Coupon,
+-  type CouponCheck,
+-  type CouponRejection,
+-  couponDiscount,
+-  validateCoupon,
+-} from "./coupon.ts"
+-import { applyDiscount, thresholdDiscount } from "./discount.ts"
+-import { type Money, ZERO, add, subtract } from "./money.ts"
+-import { type Promotion, bestLinePromotion } from "./promotion.ts"
+-
+-export interface PricedLine {
+-  readonly productId: string
+-  /** Unit price times quantity, before the line promotion. */
+-  readonly subtotal: Money
+-  /** What the winning line promotion takes off (0 when none). */
+-  readonly discount: Money
+-  /** The id of the winning promotion, or null when none applied. */
+-  readonly promotionId: string | null
+-}
+-
+-export interface PricedCart {
+-  readonly lines: readonly PricedLine[]
+-  /** Sum of the line subtotals, before any discount. */
+-  readonly subtotal: Money
+-  /** Sum of the line discounts. */
+-  readonly lineDiscountTotal: Money
+-  /** `subtotal - lineDiscountTotal`: the base for the coupon and the threshold. */
+-  readonly discountedSubtotal: Money
+-  readonly couponDiscount: Money
+-  /** Why the offered coupon was not applied, or null. */
+-  readonly couponRejection: CouponRejection | null
+-  readonly thresholdDiscount: Money
+-  readonly total: Money
+-}
+-
+-/** The coupon offered with a cart and the redemption count it was read with. */
+-export interface OfferedCoupon {
+-  readonly coupon: Coupon | undefined
+-  readonly redemptions: number
+-}
+-
+-/**
+- * Rule: the single place a cart total is computed. Discounts stack in this
+- * order, and the order matters:
+- * 1. Per line: of all `promotions`, apply only the ONE that gives the largest
+- *    discount on that line (promotions never add up on a line).
+- * 2. Cart coupon: at most ONE coupon, taken off the subtotal after line
+- *    discounts. An invalid coupon (see `validateCoupon`) takes off 0 and its
+- *    reason is reported in `couponRejection`.
+- * 3. Spend threshold: 1000 off when the subtotal after line discounts (step
+- *    1, NOT reduced by the coupon) is at least 10000.
+- * 4. Floor: the total is
+- *    `max(0, discountedSubtotal - couponDiscount - thresholdDiscount)`.
+- * Throws a RangeError for a line with a non-positive quantity. An empty cart
+- * totals 0. This function does not count a redemption: see `nextRedemptionCount`.
+- */
+-export function priceCart(
+-  cart: Cart,
+-  promotions: readonly Promotion[],
+-  offered: OfferedCoupon | null,
+-  now: number,
+-): PricedCart {
+-  const lines: PricedLine[] = cart.lines.map((line) => {
+-    const subtotal = lineSubtotal(line)
+-    const best = bestLinePromotion(promotions, line.unitPrice, line.quantity)
+-    return {
+-      productId: line.productId,
+-      subtotal,
+-      discount: best?.discount ?? ZERO,
+-      promotionId: best?.promotionId ?? null,
+-    }
+-  })
+-  const subtotal = lines.reduce((sum, l) => add(sum, l.subtotal), ZERO)
+-  const lineDiscountTotal = lines.reduce((sum, l) => add(sum, l.discount), ZERO)
+-  const discountedSubtotal = subtract(subtotal, lineDiscountTotal)
+-
+-  let couponOff: Money = ZERO
+-  let couponRejection: CouponRejection | null = null
+-  if (offered !== null) {
+-    const check: CouponCheck = { redemptions: offered.redemptions, now }
+-    const result = validateCoupon(offered.coupon, check)
+-    if (result.ok) couponOff = couponDiscount(result.coupon.discount, discountedSubtotal)
+-    else couponRejection = result.reason
+-  }
+-
+-  const thresholdOff = thresholdDiscount(discountedSubtotal)
+-  const total = applyDiscount(applyDiscount(discountedSubtotal, couponOff), thresholdOff)
+-  return {
+-    lines,
+-    subtotal,
+-    lineDiscountTotal,
+-    discountedSubtotal,
+-    couponDiscount: couponOff,
+-    couponRejection,
+-    thresholdDiscount: thresholdOff,
+-    total,
+-  }
+-}
+diff --git a/packages/domain/src/pricing/cart.test.ts b/packages/domain/src/pricing/cart.test.ts
+new file mode 100644
+index 0000000..fcd82b8
+--- /dev/null
++++ b/packages/domain/src/pricing/cart.test.ts
+@@ -0,0 +1,17 @@
++import { describe, expect, test } from "bun:test"
++import { assertQuantity, lineSubtotal } from "./cart.ts"
++import { money } from "../money.ts"
++
++describe("cart", () => {
++  test("line subtotal is unit price times quantity", () => {
++    expect(lineSubtotal({ productId: "a", unitPrice: money(1999), quantity: 3 })).toBe(
++      5997 as never,
++    )
++  })
++  test("quantity 0, negative or fractional is rejected", () => {
++    for (const q of [0, -1, 1.5, Number.NaN]) expect(() => assertQuantity(q)).toThrow(RangeError)
++    expect(() => lineSubtotal({ productId: "a", unitPrice: money(100), quantity: 0 })).toThrow(
++      RangeError,
++    )
++  })
++})
+diff --git a/packages/domain/src/pricing/cart.ts b/packages/domain/src/pricing/cart.ts
+new file mode 100644
+index 0000000..c5a2bb5
+--- /dev/null
++++ b/packages/domain/src/pricing/cart.ts
+@@ -0,0 +1,28 @@
++import { type Money, multiply } from "../money.ts"
++
++/** One line of a cart: a product at a unit price and a quantity. */
++export interface CartLine {
++  readonly productId: string
++  readonly unitPrice: Money
++  readonly quantity: number
++}
++
++export interface Cart {
++  readonly lines: readonly CartLine[]
++}
++
++/** Rule: a quantity is a positive whole number; 0, negatives and fractions throw a RangeError. */
++export function assertQuantity(quantity: number): void {
++  if (!Number.isInteger(quantity) || quantity <= 0) {
++    throw new RangeError(`Quantity must be a positive integer, got ${quantity}`)
++  }
++}
++
++/**
++ * Rule: a line's subtotal is its unit price times its quantity, before any
++ * discount. Throws a RangeError when the quantity is not a positive integer.
++ */
++export function lineSubtotal(line: CartLine): Money {
++  assertQuantity(line.quantity)
++  return multiply(line.unitPrice, line.quantity)
++}
+diff --git a/packages/domain/src/pricing/coupon.test.ts b/packages/domain/src/pricing/coupon.test.ts
+new file mode 100644
+index 0000000..87e6e56
+--- /dev/null
++++ b/packages/domain/src/pricing/coupon.test.ts
+@@ -0,0 +1,58 @@
++import { describe, expect, test } from "bun:test"
++import { type Coupon, couponDiscount, validateCoupon } from "./coupon.ts"
++import { money } from "../money.ts"
++
++const coupon: Coupon = {
++  code: "SAVE",
++  discount: { kind: "fixed", amount: money(500) },
++  usageLimit: 3,
++  expiresAt: 1_000,
++}
++
++describe("validateCoupon", () => {
++  test("a valid coupon is ok", () => {
++    expect(validateCoupon(coupon, { redemptions: 0, now: 999 })).toEqual({ ok: true, coupon })
++  })
++  test("expiry is exclusive: valid 1 ms before, expired at exactly expiresAt", () => {
++    expect(validateCoupon(coupon, { redemptions: 0, now: 999 }).ok).toBe(true)
++    expect(validateCoupon(coupon, { redemptions: 0, now: 1_000 })).toEqual({
++      ok: false,
++      reason: "expired",
++    })
++  })
++  test("the limit is reached exactly when redemptions equals it", () => {
++    expect(validateCoupon(coupon, { redemptions: 2, now: 0 }).ok).toBe(true)
++    expect(validateCoupon(coupon, { redemptions: 3, now: 0 })).toEqual({
++      ok: false,
++      reason: "exhausted",
++    })
++  })
++  test("unknown coupon is not_found", () => {
++    expect(validateCoupon(undefined, { redemptions: 0, now: 0 })).toEqual({
++      ok: false,
++      reason: "not_found",
++    })
++  })
++  test("a second coupon on an order is already_applied", () => {
++    expect(validateCoupon(coupon, { redemptions: 0, now: 0, orderHasCoupon: true })).toEqual({
++      ok: false,
++      reason: "already_applied",
++    })
++  })
++  test("expired is reported before exhausted", () => {
++    expect(validateCoupon(coupon, { redemptions: 9, now: 2_000 })).toEqual({
++      ok: false,
++      reason: "expired",
++    })
++  })
++})
++
++describe("couponDiscount", () => {
++  test("fixed coupon is capped at the base", () => {
++    expect(couponDiscount({ kind: "fixed", amount: money(500) }, money(1999))).toBe(500 as never)
++    expect(couponDiscount({ kind: "fixed", amount: money(500) }, money(300))).toBe(300 as never)
++  })
++  test("percentage coupon uses the percentage rounding rule", () => {
++    expect(couponDiscount({ kind: "percentage", percent: 10 }, money(1999))).toBe(200 as never)
++  })
++})
+diff --git a/packages/domain/src/pricing/coupon.ts b/packages/domain/src/pricing/coupon.ts
+new file mode 100644
+index 0000000..f43a5ac
+--- /dev/null
++++ b/packages/domain/src/pricing/coupon.ts
+@@ -0,0 +1,66 @@
++import { fixedDiscount, percentageDiscount } from "./discount.ts"
++import type { Money } from "../money.ts"
++
++/** What a coupon takes off the cart: a percentage or a fixed amount. */
++export type CouponDiscount =
++  | { readonly kind: "percentage"; readonly percent: number }
++  | { readonly kind: "fixed"; readonly amount: Money }
++
++/**
++ * A coupon. `usageLimit` is the most redemptions allowed in total and
++ * `expiresAt` is an instant in milliseconds since the epoch.
++ */
++export interface Coupon {
++  readonly code: string
++  readonly discount: CouponDiscount
++  readonly usageLimit: number
++  readonly expiresAt: number
++}
++
++export type CouponRejection = "not_found" | "expired" | "exhausted" | "already_applied"
++
++export type CouponValidation =
++  | { readonly ok: true; readonly coupon: Coupon }
++  | { readonly ok: false; readonly reason: CouponRejection }
++
++export interface CouponCheck {
++  /** Redemptions already counted for this coupon. */
++  readonly redemptions: number
++  /** The current instant in milliseconds since the epoch. */
++  readonly now: number
++  /** True when the order already carries a coupon: at most one per order. */
++  readonly orderHasCoupon?: boolean
++}
++
++/**
++ * Rule: a coupon is usable only when all of these hold, checked in this order
++ * and reported as the first failing reason:
++ * 1. a coupon exists (`undefined` is "not_found");
++ * 2. the order has no coupon yet (otherwise "already_applied");
++ * 3. it has not expired: expiry is EXCLUSIVE of the instant `expiresAt`, so
++ *    when `now >= expiresAt` the result is "expired" and one millisecond
++ *    earlier it is still valid;
++ * 4. it is not exhausted: when `redemptions >= usageLimit` the result is
++ *    "exhausted", so the last allowed redemption is the one that makes the
++ *    count equal the limit.
++ * Otherwise the result is `{ ok: true, coupon }`.
++ */
++export function validateCoupon(coupon: Coupon | undefined, check: CouponCheck): CouponValidation {
++  if (coupon === undefined) return { ok: false, reason: "not_found" }
++  if (check.orderHasCoupon === true) return { ok: false, reason: "already_applied" }
++  if (check.now >= coupon.expiresAt) return { ok: false, reason: "expired" }
++  if (check.redemptions >= coupon.usageLimit) return { ok: false, reason: "exhausted" }
++  return { ok: true, coupon }
++}
++
++/**
++ * Rule: the discount a coupon takes off `base` (the cart subtotal after line
++ * discounts). A percentage coupon uses the percentage rounding rule; a fixed
++ * coupon takes its amount but never more than `base`. The result never
++ * exceeds `base`.
++ */
++export function couponDiscount(discount: CouponDiscount, base: Money): Money {
++  return discount.kind === "fixed"
++    ? fixedDiscount(base, discount.amount)
++    : percentageDiscount(base, discount.percent)
++}
+diff --git a/packages/domain/src/pricing/discount.test.ts b/packages/domain/src/pricing/discount.test.ts
+new file mode 100644
+index 0000000..e51f96c
+--- /dev/null
++++ b/packages/domain/src/pricing/discount.test.ts
+@@ -0,0 +1,59 @@
++import { describe, expect, test } from "bun:test"
++import {
++  applyDiscount,
++  fixedDiscount,
++  floorAtZero,
++  percentageDiscount,
++  thresholdDiscount,
++} from "./discount.ts"
++import { money } from "../money.ts"
++
++const m = money
++
++describe("percentageDiscount", () => {
++  test("10% off 1999 takes 200 off, so the customer pays 1799", () => {
++    const off = percentageDiscount(m(1999), 10)
++    expect(off).toBe(200 as never)
++    expect(1999 - off).toBe(1799)
++  })
++  test("an exact half rounds up", () => {
++    expect(percentageDiscount(m(1995), 10)).toBe(200 as never)
++    expect(percentageDiscount(m(1994), 10)).toBe(199 as never)
++  })
++  test("0% takes nothing and 100% takes everything", () => {
++    expect(percentageDiscount(m(1999), 0)).toBe(0 as never)
++    expect(percentageDiscount(m(1999), 100)).toBe(1999 as never)
++  })
++  test("rejects a bad percent or a negative amount", () => {
++    expect(() => percentageDiscount(m(100), -1)).toThrow(RangeError)
++    expect(() => percentageDiscount(m(100), 101)).toThrow(RangeError)
++    expect(() => percentageDiscount(m(100), 12.5)).toThrow(RangeError)
++    expect(() => percentageDiscount(m(-100), 10)).toThrow(RangeError)
++  })
++})
++
++describe("fixedDiscount", () => {
++  test("500 off 1999 is 500", () => {
++    expect(fixedDiscount(m(1999), m(500))).toBe(500 as never)
++  })
++  test("never more than the amount", () => {
++    expect(fixedDiscount(m(300), m(500))).toBe(300 as never)
++    expect(applyDiscount(m(300), fixedDiscount(m(300), m(500)))).toBe(0 as never)
++  })
++})
++
++describe("thresholdDiscount", () => {
++  test("exactly 10000 qualifies, 9999 does not", () => {
++    expect(thresholdDiscount(m(10000))).toBe(1000 as never)
++    expect(thresholdDiscount(m(9999))).toBe(0 as never)
++    expect(thresholdDiscount(m(0))).toBe(0 as never)
++  })
++})
++
++describe("floor", () => {
++  test("a total never goes below 0", () => {
++    expect(floorAtZero(m(-5))).toBe(0 as never)
++    expect(floorAtZero(m(5))).toBe(5 as never)
++    expect(applyDiscount(m(100), m(250))).toBe(0 as never)
++  })
++})
+diff --git a/packages/domain/src/pricing/discount.ts b/packages/domain/src/pricing/discount.ts
+new file mode 100644
+index 0000000..ac9c205
+--- /dev/null
++++ b/packages/domain/src/pricing/discount.ts
+@@ -0,0 +1,70 @@
++import { type Money, money, subtract } from "../money.ts"
++
++/** Rule: a percentage is a whole number from 0 to 100 inclusive; anything else throws a RangeError. */
++export function assertPercent(percent: number): void {
++  if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
++    throw new RangeError(`Percent must be an integer from 0 to 100, got ${percent}`)
++  }
++}
++
++/**
++ * Rule: the amount taken off by a percentage discount is `amount * percent / 100`
++ * rounded to the nearest minor unit, with an exact half rounded UP (away from
++ * zero for the non-negative amounts used here). The customer therefore pays
++ * `amount - discount`. Example: 10% off 1999 is 199.9, which rounds to 200 off,
++ * so the customer pays 1799. 10% off 1995 is exactly 199.5, which rounds up to
++ * 200. Integer arithmetic only. Throws a RangeError for a negative amount or a
++ * percent outside 0..100.
++ */
++export function percentageDiscount(amount: Money, percent: number): Money {
++  assertPercent(percent)
++  if (amount < 0) {
++    throw new RangeError(`Amount must not be negative, got ${amount}`)
++  }
++  return money(Math.floor((amount * percent + 50) / 100))
++}
++
++/**
++ * Rule: a fixed discount takes `off` minor units from `amount` but never more
++ * than `amount`, so the result of applying it is never below 0. This returns
++ * the discount actually applied: `min(off, amount)`. Example: 500 off 1999 is
++ * 500; 500 off 300 is 300. Throws a RangeError if either value is negative.
++ */
++export function fixedDiscount(amount: Money, off: Money): Money {
++  if (amount < 0 || off < 0) {
++    throw new RangeError("Amount and discount must not be negative")
++  }
++  return money(Math.min(amount, off))
++}
++
++/** The spend threshold in minor units: 100.00. */
++export const SPEND_THRESHOLD: Money = money(10000)
++
++/** The discount granted when the threshold is reached: 10.00. */
++export const SPEND_THRESHOLD_DISCOUNT: Money = money(1000)
++
++/**
++ * Rule: when `subtotal` is at least 10000 (exactly 10000 qualifies, 9999 does
++ * not) the discount is 1000, otherwise 0. The caller passes the subtotal AFTER
++ * line discounts and BEFORE the coupon (see `priceCart`). Throws a RangeError
++ * for a negative subtotal.
++ */
++export function thresholdDiscount(subtotal: Money): Money {
++  if (subtotal < 0) {
++    throw new RangeError(`Subtotal must not be negative, got ${subtotal}`)
++  }
++  return subtotal >= SPEND_THRESHOLD ? SPEND_THRESHOLD_DISCOUNT : money(0)
++}
++
++/**
++ * Rule: a total never goes below 0. Returns `amount` when it is positive and
++ * 0 otherwise.
++ */
++export function floorAtZero(amount: Money): Money {
++  return amount < 0 ? money(0) : amount
++}
++
++/** The amount left after taking `discount` off `amount`, floored at 0. */
++export function applyDiscount(amount: Money, discount: Money): Money {
++  return floorAtZero(subtract(amount, discount))
++}
+diff --git a/packages/domain/src/pricing/pricing.test.ts b/packages/domain/src/pricing/pricing.test.ts
+new file mode 100644
+index 0000000..faaa8f7
+--- /dev/null
++++ b/packages/domain/src/pricing/pricing.test.ts
+@@ -0,0 +1,133 @@
++import { describe, expect, test } from "bun:test"
++import type { Coupon } from "./coupon.ts"
++import { money } from "../money.ts"
++import { priceCart } from "./pricing.ts"
++import type { Promotion } from "./promotion.ts"
++
++const NOW = 1_000
++const line = (productId: string, unit: number, quantity: number) => ({
++  productId,
++  unitPrice: money(unit),
++  quantity,
++})
++const fixed500: Coupon = {
++  code: "F",
++  discount: { kind: "fixed", amount: money(500) },
++  usageLimit: 5,
++  expiresAt: 2_000,
++}
++const ten: Promotion = { id: "ten", kind: "percentage", percent: 10 }
++const half: Promotion = { id: "half", kind: "percentage", percent: 50 }
++const b2g1: Promotion = { id: "b2g1", kind: "buyTwoGetOne" }
++
++describe("priceCart", () => {
++  test("empty cart totals 0", () => {
++    const r = priceCart({ lines: [] }, [ten], null, NOW)
++    expect(r.total).toBe(0 as never)
++    expect(r.lines).toEqual([])
++  })
++
++  test("no promotions: total is the subtotal", () => {
++    const r = priceCart({ lines: [line("a", 1999, 2)] }, [], null, NOW)
++    expect(r.subtotal).toBe(3998 as never)
++    expect(r.total).toBe(3998 as never)
++    expect(r.lines[0]?.promotionId).toBeNull()
++  })
++
++  test("10% off 1999 prices the line at 1799", () => {
++    const r = priceCart({ lines: [line("a", 1999, 1)] }, [ten], null, NOW)
++    expect(r.lines[0]).toEqual({
++      productId: "a",
++      subtotal: 1999 as never,
++      discount: 200 as never,
++      promotionId: "ten",
++    })
++    expect(r.total).toBe(1799 as never)
++  })
++
++  test("one line takes only the best promotion", () => {
++    const r = priceCart({ lines: [line("a", 1000, 3)] }, [ten, half, b2g1], null, NOW)
++    expect(r.lines[0]?.promotionId).toBe("half")
++    expect(r.lineDiscountTotal).toBe(1500 as never)
++    expect(r.total).toBe(1500 as never)
++  })
++
++  test("order: line promotions, then coupon, then threshold", () => {
++    // 2 x 6000 = 12000, 10% off -> 1200 off -> 10800.
++    // coupon 500 off 10800; threshold sees 10800 (>= 10000) -> 1000 off. 10800 - 500 - 1000 = 9300.
++    const r = priceCart(
++      { lines: [line("a", 6000, 2)] },
++      [ten],
++      { coupon: fixed500, redemptions: 0 },
++      NOW,
++    )
++    expect(r.discountedSubtotal).toBe(10800 as never)
++    expect(r.couponDiscount).toBe(500 as never)
++    expect(r.thresholdDiscount).toBe(1000 as never)
++    expect(r.total).toBe(9300 as never)
++  })
++
++  test("threshold looks at the subtotal after line discounts, not before", () => {
++    // gross 10000 qualifies, but 10% off the line leaves 9000: no threshold.
++    const r = priceCart({ lines: [line("a", 10000, 1)] }, [ten], null, NOW)
++    expect(r.subtotal).toBe(10000 as never)
++    expect(r.thresholdDiscount).toBe(0 as never)
++    expect(r.total).toBe(9000 as never)
++  })
++
++  test("threshold is not reduced by the coupon", () => {
++    // 10000 after lines; coupon 500 would leave 9500, yet threshold still applies.
++    const r = priceCart(
++      { lines: [line("a", 10000, 1)] },
++      [],
++      { coupon: fixed500, redemptions: 0 },
++      NOW,
++    )
++    expect(r.thresholdDiscount).toBe(1000 as never)
++    expect(r.total).toBe(8500 as never)
++  })
++
++  test("a fixed coupon larger than the subtotal floors the total at 0", () => {
++    const r = priceCart(
++      { lines: [line("a", 300, 1)] },
++      [],
++      { coupon: fixed500, redemptions: 0 },
++      NOW,
++    )
++    expect(r.couponDiscount).toBe(300 as never)
++    expect(r.total).toBe(0 as never)
++  })
++
++  test("100% promotion gives a total of 0", () => {
++    const free: Promotion = { id: "free", kind: "percentage", percent: 100 }
++    expect(priceCart({ lines: [line("a", 1999, 1)] }, [free], null, NOW).total).toBe(0 as never)
++  })
++
++  test("an expired, exhausted or unknown coupon takes off 0 and says why", () => {
++    const cart = { lines: [line("a", 1000, 1)] }
++    expect(priceCart(cart, [], { coupon: fixed500, redemptions: 0 }, 2_000).couponRejection).toBe(
++      "expired",
++    )
++    expect(priceCart(cart, [], { coupon: fixed500, redemptions: 5 }, NOW).couponRejection).toBe(
++      "exhausted",
++    )
++    const unknown = priceCart(cart, [], { coupon: undefined, redemptions: 0 }, NOW)
++    expect(unknown.couponRejection).toBe("not_found")
++    expect(unknown.total).toBe(1000 as never)
++  })
++
++  test("a coupon expiring exactly at now is rejected", () => {
++    const r = priceCart(
++      { lines: [line("a", 1000, 1)] },
++      [],
++      { coupon: fixed500, redemptions: 0 },
++      2_000,
++    )
++    expect(r.couponDiscount).toBe(0 as never)
++  })
++
++  test("a line with quantity 0 or negative is rejected", () => {
++    expect(() => priceCart({ lines: [line("a", 100, 0)] }, [], null, NOW)).toThrow(RangeError)
++    expect(() => priceCart({ lines: [line("a", 100, -2)] }, [], null, NOW)).toThrow(RangeError)
++  })
++})
+diff --git a/packages/domain/src/pricing/pricing.ts b/packages/domain/src/pricing/pricing.ts
+new file mode 100644
+index 0000000..0348be0
+--- /dev/null
++++ b/packages/domain/src/pricing/pricing.ts
+@@ -0,0 +1,100 @@
++import { type Cart, lineSubtotal } from "./cart.ts"
++import {
++  type Coupon,
++  type CouponCheck,
++  type CouponRejection,
++  couponDiscount,
++  validateCoupon,
++} from "./coupon.ts"
++import { applyDiscount, thresholdDiscount } from "./discount.ts"
++import { type Money, ZERO, add, subtract } from "../money.ts"
++import { type Promotion, bestLinePromotion } from "./promotion.ts"
++
++export interface PricedLine {
++  readonly productId: string
++  /** Unit price times quantity, before the line promotion. */
++  readonly subtotal: Money
++  /** What the winning line promotion takes off (0 when none). */
++  readonly discount: Money
++  /** The id of the winning promotion, or null when none applied. */
++  readonly promotionId: string | null
++}
++
++export interface PricedCart {
++  readonly lines: readonly PricedLine[]
++  /** Sum of the line subtotals, before any discount. */
++  readonly subtotal: Money
++  /** Sum of the line discounts. */
++  readonly lineDiscountTotal: Money
++  /** `subtotal - lineDiscountTotal`: the base for the coupon and the threshold. */
++  readonly discountedSubtotal: Money
++  readonly couponDiscount: Money
++  /** Why the offered coupon was not applied, or null. */
++  readonly couponRejection: CouponRejection | null
++  readonly thresholdDiscount: Money
++  readonly total: Money
++}
++
++/** The coupon offered with a cart and the redemption count it was read with. */
++export interface OfferedCoupon {
++  readonly coupon: Coupon | undefined
++  readonly redemptions: number
++}
++
++/**
++ * Rule: the single place a cart total is computed. Discounts stack in this
++ * order, and the order matters:
++ * 1. Per line: of all `promotions`, apply only the ONE that gives the largest
++ *    discount on that line (promotions never add up on a line).
++ * 2. Cart coupon: at most ONE coupon, taken off the subtotal after line
++ *    discounts. An invalid coupon (see `validateCoupon`) takes off 0 and its
++ *    reason is reported in `couponRejection`.
++ * 3. Spend threshold: 1000 off when the subtotal after line discounts (step
++ *    1, NOT reduced by the coupon) is at least 10000.
++ * 4. Floor: the total is
++ *    `max(0, discountedSubtotal - couponDiscount - thresholdDiscount)`.
++ * Throws a RangeError for a line with a non-positive quantity. An empty cart
++ * totals 0. This function does not count a redemption: see `nextRedemptionCount`.
++ */
++export function priceCart(
++  cart: Cart,
++  promotions: readonly Promotion[],
++  offered: OfferedCoupon | null,
++  now: number,
++): PricedCart {
++  const lines: PricedLine[] = cart.lines.map((line) => {
++    const subtotal = lineSubtotal(line)
++    const best = bestLinePromotion(promotions, line.unitPrice, line.quantity)
++    return {
++      productId: line.productId,
++      subtotal,
++      discount: best?.discount ?? ZERO,
++      promotionId: best?.promotionId ?? null,
++    }
++  })
++  const subtotal = lines.reduce((sum, l) => add(sum, l.subtotal), ZERO)
++  const lineDiscountTotal = lines.reduce((sum, l) => add(sum, l.discount), ZERO)
++  const discountedSubtotal = subtract(subtotal, lineDiscountTotal)
++
++  let couponOff: Money = ZERO
++  let couponRejection: CouponRejection | null = null
++  if (offered !== null) {
++    const check: CouponCheck = { redemptions: offered.redemptions, now }
++    const result = validateCoupon(offered.coupon, check)
++    if (result.ok) couponOff = couponDiscount(result.coupon.discount, discountedSubtotal)
++    else couponRejection = result.reason
++  }
++
++  const thresholdOff = thresholdDiscount(discountedSubtotal)
++  const total = applyDiscount(applyDiscount(discountedSubtotal, couponOff), thresholdOff)
++  return {
++    lines,
++    subtotal,
++    lineDiscountTotal,
++    discountedSubtotal,
++    couponDiscount: couponOff,
++    couponRejection,
++    thresholdDiscount: thresholdOff,
++    total,
++  }
++}
+diff --git a/packages/domain/src/pricing/promotion.test.ts b/packages/domain/src/pricing/promotion.test.ts
+new file mode 100644
+index 0000000..388a3cc
+--- /dev/null
++++ b/packages/domain/src/pricing/promotion.test.ts
+@@ -0,0 +1,59 @@
++import { describe, expect, test } from "bun:test"
++import { money } from "../money.ts"
++import {
++  type Promotion,
++  bestLinePromotion,
++  buyTwoGetOneDiscount,
++  promotionDiscount,
++} from "./promotion.ts"
++
++const price = money(1000)
++
++describe("buyTwoGetOneDiscount", () => {
++  test("3 units charge 2, 5 charge 4, 1 charges 1", () => {
++    expect(buyTwoGetOneDiscount(price, 3)).toBe(1000 as never)
++    expect(buyTwoGetOneDiscount(price, 5)).toBe(1000 as never)
++    expect(buyTwoGetOneDiscount(price, 6)).toBe(2000 as never)
++    expect(buyTwoGetOneDiscount(price, 1)).toBe(0 as never)
++    expect(buyTwoGetOneDiscount(price, 2)).toBe(0 as never)
++  })
++  test("rejects quantity 0 and negatives", () => {
++    expect(() => buyTwoGetOneDiscount(price, 0)).toThrow(RangeError)
++    expect(() => buyTwoGetOneDiscount(price, -3)).toThrow(RangeError)
++  })
++})
++
++describe("promotionDiscount", () => {
++  test("a percentage applies to the line subtotal", () => {
++    const p: Promotion = { id: "ten", kind: "percentage", percent: 10 }
++    expect(promotionDiscount(p, money(1999), 1)).toBe(200 as never)
++    expect(promotionDiscount(p, money(1000), 3)).toBe(300 as never)
++  })
++})
++
++describe("bestLinePromotion", () => {
++  const ten: Promotion = { id: "ten", kind: "percentage", percent: 10 }
++  const half: Promotion = { id: "half", kind: "percentage", percent: 50 }
++  const b2g1: Promotion = { id: "b2g1", kind: "buyTwoGetOne" }
++
++  test("two promotions on one line: the larger one wins, they do not add", () => {
++    expect(bestLinePromotion([ten, half], price, 1)).toEqual({
++      promotionId: "half",
++      discount: 500 as never,
++    })
++    expect(bestLinePromotion([half, ten], price, 1)?.promotionId).toBe("half")
++  })
++  test("buy-two-get-one beats 10% on 3 units (1000 vs 300)", () => {
++    expect(bestLinePromotion([ten, b2g1], price, 3)?.promotionId).toBe("b2g1")
++  })
++  test("a tie goes to the first listed", () => {
++    expect(
++      bestLinePromotion([ten, { id: "ten2", kind: "percentage", percent: 10 }], price, 1)
++        ?.promotionId,
++    ).toBe("ten")
++  })
++  test("no promotion, or none that discounts, gives null", () => {
++    expect(bestLinePromotion([], price, 1)).toBeNull()
++    expect(bestLinePromotion([b2g1], price, 2)).toBeNull()
++  })
++})
+diff --git a/packages/domain/src/pricing/promotion.ts b/packages/domain/src/pricing/promotion.ts
+new file mode 100644
+index 0000000..bf9f4b9
+--- /dev/null
++++ b/packages/domain/src/pricing/promotion.ts
+@@ -0,0 +1,70 @@
++import { assertQuantity } from "./cart.ts"
++import { assertPercent, percentageDiscount } from "./discount.ts"
++import { type Money, multiply } from "../money.ts"
++
++/** A promotion that applies to a single cart line. */
++export type Promotion =
++  | { readonly id: string; readonly kind: "percentage"; readonly percent: number }
++  | { readonly id: string; readonly kind: "buyTwoGetOne" }
++
++/** The promotion that won on a line and how much it takes off. */
++export interface LinePromotionResult {
++  readonly promotionId: string
++  readonly discount: Money
++}
++
++/** The most free units a single promotion grants on one line. */
++const MAX_FREE_UNITS_PER_LINE = 2
++
++/** The number of free units for `quantity` units: one per complete group of 3. */
++function freeUnits(quantity: number): number {
++  return Math.min(Math.floor(quantity / 3), MAX_FREE_UNITS_PER_LINE)
++}
++
++/**
++ * Rule: buy two, get one free. Every complete group of 3 units charges 2, so
++ * the free units are `floor(quantity / 3)` and the discount is that many unit
++ * prices. 1 unit charges 1 (discount 0), 2 units charge 2, 3 units charge 2,
++ * 5 units charge 4, 6 units charge 4. Quantity must be a positive integer.
++ */
++export function buyTwoGetOneDiscount(unitPrice: Money, quantity: number): Money {
++  assertQuantity(quantity)
++  return multiply(unitPrice, freeUnits(quantity))
++}
++
++/**
++ * Rule: the discount one promotion gives on a line of `quantity` units at
++ * `unitPrice`. A percentage promotion uses `percentageDiscount` on the line
++ * subtotal (unit price times quantity); buy-two-get-one uses
++ * `buyTwoGetOneDiscount`.
++ */
++export function promotionDiscount(promotion: Promotion, unitPrice: Money, quantity: number): Money {
++  assertQuantity(quantity)
++  const lineSubtotal = multiply(unitPrice, quantity)
++  if (promotion.kind === "percentage") {
++    assertPercent(promotion.percent)
++    return percentageDiscount(lineSubtotal, promotion.percent)
++  }
++  return buyTwoGetOneDiscount(unitPrice, quantity)
++}
++
++/**
++ * Rule: a line gets at most ONE promotion, the one giving the largest
++ * discount. Promotions never add up on a line. When two give the same
++ * discount the one listed first wins. Returns null when there are no
++ * promotions or none gives a discount above 0.
++ */
++export function bestLinePromotion(
++  promotions: readonly Promotion[],
++  unitPrice: Money,
++  quantity: number,
++): LinePromotionResult | null {
++  let best: LinePromotionResult | null = null
++  for (const promotion of promotions) {
++    const discount = promotionDiscount(promotion, unitPrice, quantity)
++    if (discount > 0 && (best === null || discount > best.discount)) {
++      best = { promotionId: promotion.id, discount }
++    }
++  }
++  return best
++}
+diff --git a/packages/domain/src/promotion.test.ts b/packages/domain/src/promotion.test.ts
+deleted file mode 100644
+index ca8d5de..0000000
+--- a/packages/domain/src/promotion.test.ts
++++ /dev/null
+@@ -1,59 +0,0 @@
+-import { describe, expect, test } from "bun:test"
+-import { money } from "./money.ts"
+-import {
+-  type Promotion,
+-  bestLinePromotion,
+-  buyTwoGetOneDiscount,
+-  promotionDiscount,
+-} from "./promotion.ts"
+-
+-const price = money(1000)
+-
+-describe("buyTwoGetOneDiscount", () => {
+-  test("3 units charge 2, 5 charge 4, 1 charges 1", () => {
+-    expect(buyTwoGetOneDiscount(price, 3)).toBe(1000 as never)
+-    expect(buyTwoGetOneDiscount(price, 5)).toBe(1000 as never)
+-    expect(buyTwoGetOneDiscount(price, 6)).toBe(2000 as never)
+-    expect(buyTwoGetOneDiscount(price, 1)).toBe(0 as never)
+-    expect(buyTwoGetOneDiscount(price, 2)).toBe(0 as never)
+-  })
+-  test("rejects quantity 0 and negatives", () => {
+-    expect(() => buyTwoGetOneDiscount(price, 0)).toThrow(RangeError)
+-    expect(() => buyTwoGetOneDiscount(price, -3)).toThrow(RangeError)
+-  })
+-})
+-
+-describe("promotionDiscount", () => {
+-  test("a percentage applies to the line subtotal", () => {
+-    const p: Promotion = { id: "ten", kind: "percentage", percent: 10 }
+-    expect(promotionDiscount(p, money(1999), 1)).toBe(200 as never)
+-    expect(promotionDiscount(p, money(1000), 3)).toBe(300 as never)
+-  })
+-})
+-
+-describe("bestLinePromotion", () => {
+-  const ten: Promotion = { id: "ten", kind: "percentage", percent: 10 }
+-  const half: Promotion = { id: "half", kind: "percentage", percent: 50 }
+-  const b2g1: Promotion = { id: "b2g1", kind: "buyTwoGetOne" }
+-
+-  test("two promotions on one line: the larger one wins, they do not add", () => {
+-    expect(bestLinePromotion([ten, half], price, 1)).toEqual({
+-      promotionId: "half",
+-      discount: 500 as never,
+-    })
+-    expect(bestLinePromotion([half, ten], price, 1)?.promotionId).toBe("half")
+-  })
+-  test("buy-two-get-one beats 10% on 3 units (1000 vs 300)", () => {
+-    expect(bestLinePromotion([ten, b2g1], price, 3)?.promotionId).toBe("b2g1")
+-  })
+-  test("a tie goes to the first listed", () => {
+-    expect(
+-      bestLinePromotion([ten, { id: "ten2", kind: "percentage", percent: 10 }], price, 1)
+-        ?.promotionId,
+-    ).toBe("ten")
+-  })
+-  test("no promotion, or none that discounts, gives null", () => {
+-    expect(bestLinePromotion([], price, 1)).toBeNull()
+-    expect(bestLinePromotion([b2g1], price, 2)).toBeNull()
+-  })
+-})
+diff --git a/packages/domain/src/promotion.ts b/packages/domain/src/promotion.ts
+deleted file mode 100644
+index 55e8d9d..0000000
+--- a/packages/domain/src/promotion.ts
++++ /dev/null
+@@ -1,62 +0,0 @@
+-import { assertQuantity } from "./cart.ts"
+-import { assertPercent, percentageDiscount } from "./discount.ts"
+-import { type Money, multiply } from "./money.ts"
+-
+-/** A promotion that applies to a single cart line. */
+-export type Promotion =
+-  | { readonly id: string; readonly kind: "percentage"; readonly percent: number }
+-  | { readonly id: string; readonly kind: "buyTwoGetOne" }
+-
+-/** The promotion that won on a line and how much it takes off. */
+-export interface LinePromotionResult {
+-  readonly promotionId: string
+-  readonly discount: Money
+-}
+-
+-/**
+- * Rule: buy two, get one free. Every complete group of 3 units charges 2, so
+- * the free units are `floor(quantity / 3)` and the discount is that many unit
+- * prices. 1 unit charges 1 (discount 0), 2 units charge 2, 3 units charge 2,
+- * 5 units charge 4, 6 units charge 4. Quantity must be a positive integer.
+- */
+-export function buyTwoGetOneDiscount(unitPrice: Money, quantity: number): Money {
+-  assertQuantity(quantity)
+-  return multiply(unitPrice, Math.floor(quantity / 3))
+-}
+-
+-/**
+- * Rule: the discount one promotion gives on a line of `quantity` units at
+- * `unitPrice`. A percentage promotion uses `percentageDiscount` on the line
+- * subtotal (unit price times quantity); buy-two-get-one uses
+- * `buyTwoGetOneDiscount`.
+- */
+-export function promotionDiscount(promotion: Promotion, unitPrice: Money, quantity: number): Money {
+-  assertQuantity(quantity)
+-  const lineSubtotal = multiply(unitPrice, quantity)
+-  if (promotion.kind === "percentage") {
+-    assertPercent(promotion.percent)
+-    return percentageDiscount(lineSubtotal, promotion.percent)
+-  }
+-  return buyTwoGetOneDiscount(unitPrice, quantity)
+-}
+-
+-/**
+- * Rule: a line gets at most ONE promotion, the one giving the largest
+- * discount. Promotions never add up on a line. When two give the same
+- * discount the one listed first wins. Returns null when there are no
+- * promotions or none gives a discount above 0.
+- */
+-export function bestLinePromotion(
+-  promotions: readonly Promotion[],
+-  unitPrice: Money,
+-  quantity: number,
+-): LinePromotionResult | null {
+-  let best: LinePromotionResult | null = null
+-  for (const promotion of promotions) {
+-    const discount = promotionDiscount(promotion, unitPrice, quantity)
+-    if (discount > 0 && (best === null || discount > best.discount)) {
+-      best = { promotionId: promotion.id, discount }
+-    }
+-  }
+-  return best
+-}
