@@ -1,6 +1,6 @@
 import { assertQuantity } from "./cart.ts"
 import { assertPercent, percentageDiscount } from "./discount.ts"
-import { type Money, multiply } from "./money.ts"
+import { type Money, multiply } from "../money.ts"
 
 /** A promotion that applies to a single cart line. */
 export type Promotion =
@@ -13,6 +13,14 @@ export interface LinePromotionResult {
   readonly discount: Money
 }
 
+/** The most free units a single promotion grants on one line. */
+const MAX_FREE_UNITS_PER_LINE = 2
+
+/** The number of free units for `quantity` units: one per complete group of 3. */
+function freeUnits(quantity: number): number {
+  return Math.min(Math.floor(quantity / 3), MAX_FREE_UNITS_PER_LINE)
+}
+
 /**
  * Rule: buy two, get one free. Every complete group of 3 units charges 2, so
  * the free units are `floor(quantity / 3)` and the discount is that many unit
@@ -21,7 +29,7 @@ export interface LinePromotionResult {
  */
 export function buyTwoGetOneDiscount(unitPrice: Money, quantity: number): Money {
   assertQuantity(quantity)
-  return multiply(unitPrice, Math.floor(quantity / 3))
+  return multiply(unitPrice, freeUnits(quantity))
 }
 
 /**

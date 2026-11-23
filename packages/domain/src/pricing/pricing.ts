@@ -7,7 +7,7 @@ import {
   validateCoupon,
 } from "./coupon.ts"
 import { applyDiscount, thresholdDiscount } from "./discount.ts"
-import { type Money, ZERO, add, subtract } from "./money.ts"
+import { type Money, ZERO, add, subtract } from "../money.ts"
 import { type Promotion, bestLinePromotion } from "./promotion.ts"
 
 export interface PricedLine {
