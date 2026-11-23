@@ -6,6 +6,16 @@ written in Effect, a real login with better-auth, and SQLite through `bun:sqlite
 
 This repository is the baseline. It is not a product and it is not deployed.
 
+## What the shop does
+
+- **Customer**: browses the catalog, adds, removes and changes quantities in a cart (kept in the
+  browser, with a badge in the nav), logs in, applies one coupon and checks out.
+- **Admin**: creates, edits and switches promotions and coupons on or off, and sees the counters:
+  units in stock per product, orders placed, and redemptions per promotion and per coupon.
+- **Prices**: the server is the authority. The web app sends product ids, quantities and a coupon
+  code; the api prices them with the domain's `priceCart`. See
+  [cart and checkout](docs/features/checkout.md).
+
 ## Requirements
 
 - [Bun](https://bun.sh) `1.4.5-canary.20261122.1`, pinned exactly. It is a canary build because
@@ -20,16 +30,16 @@ first time you run `bun run dev` or `bun run db:reset`; it is gitignored.
 
 ## Commands
 
-| Command            | What it does                                                            |
-| ------------------ | ----------------------------------------------------------------------- |
-| `bun install`      | Installs the workspace.                                                 |
-| `bun run db:reset` | Deletes `data/shop.db`, migrates, and seeds the demo users and catalog. |
-| `bun run dev`      | Starts the api on port 3001 and the web app on port 3000.               |
-| `bun run build`    | Builds both apps.                                                       |
-| `bun test`         | Runs every test.                                                        |
-| `bun check`        | Type checks the whole workspace.                                        |
-| `bun fmt --check`  | Checks formatting (`bun fmt` writes it).                                |
-| `bun lint`         | Lints the workspace.                                                    |
+| Command            | What it does                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `bun install`      | Installs the workspace.                                                                      |
+| `bun run db:reset` | Deletes `data/shop.db`, migrates, and seeds the demo users, catalog, promotions and coupons. |
+| `bun run dev`      | Starts the api on port 3001 and the web app on port 3000.                                    |
+| `bun run build`    | Builds both apps.                                                                            |
+| `bun test`         | Runs every test.                                                                             |
+| `bun check`        | Type checks the whole workspace.                                                             |
+| `bun fmt --check`  | Checks formatting (`bun fmt` writes it).                                                     |
+| `bun lint`         | Lints the workspace.                                                                         |
 
 `package.json` defines no `check`, `lint` or `fmt` script on purpose: a script with one of those
 names would replace the built-in command.

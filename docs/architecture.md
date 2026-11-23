@@ -23,7 +23,7 @@ flowchart LR
 | Package                 | What it holds                                                                                                 | May import                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | `packages/domain`       | Pure types and functions: money in minor units, products, roles. No I/O, no Effect services, no dependencies. | nothing                             |
-| `packages/application`  | Use cases written in Effect and the repository ports they need (`ProductRepository`, `SessionReader`).        | `domain`                            |
+| `packages/application`  | Use cases written in Effect and the ports they need (repositories, `CheckoutStore`, `SessionReader`).         | `domain`                            |
 | `packages/api-contract` | The oRPC contract (procedures, outputs, error codes) and its schemas.                                         | `domain`                            |
 | `packages/infra-db`     | The drizzle schema, migrations, seed, and repository implementations as Effect layers.                        | `application`, `domain`             |
 | `packages/infra-auth`   | better-auth over the same SQLite file, the `SessionReader` adapter, the demo users.                           | `application`, `domain`, `infra-db` |
@@ -41,7 +41,10 @@ flowchart LR
   client from it; the api implements it. Everything else crosses the wire as JSON.
 - The api decides who may do what: roles are checked in `application` (`requireAdmin`) and enforced
   in the router. Hiding a page in the web app is a convenience, never a control.
-- The web app never computes a price the api trusts. It shows what the api returns.
+- The web app never computes a price the api trusts. It shows what the api returns. The checkout
+  contract has no price or total field, and totals come only from `priceCart` in `domain`.
+- A checkout is one transaction behind the `CheckoutStore` port: use cases decide, the adapter only
+  makes the steps all-or-nothing. See [cart and checkout](features/checkout.md).
 
 ## Data
 
@@ -53,7 +56,8 @@ in the same file and are created by one migration set in `packages/infra-db/driz
   epoch).
 - `bun run db:reset` deletes the file, applies the migrations with drizzle's `bun-sqlite` migrator,
   and seeds the demo catalog and users.
-- To change the schema, edit `packages/infra-db/src/schema.ts` and run `bun run db:generate`.
+- To change the schema, edit `packages/infra-db/src/schema.ts` and run `bun run db:generate`. A
+  change is always a new migration file; an applied one is never edited.
 
 ## Authentication
 
