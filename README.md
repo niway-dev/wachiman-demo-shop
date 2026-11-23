@@ -73,19 +73,17 @@ What Wachiman reports on planted changes, and how to compare two versions of it,
 [review scenarios](docs/scenarios.md).
 
 [Wachiman](https://github.com/niway-dev/wachiman) reviews pull requests here, in this repository's
-CI, with the owner's own Anthropic API key. It reads each diff and comments on bugs, with extra
+CI, on the owner's Claude subscription. It reads each diff and comments on bugs, with extra
 attention to the paths in [`.wachiman.yml`](.wachiman.yml): authentication and checkout
 (critical) and pricing (high).
 
 The workflow in `.github/workflows/review.yml` runs only for pull requests from a branch of this
-repository opened by the owner. A pull request from a fork gets no review and no secret.
+repository that the operator, `csdev19`, opens. A pull request from a fork gets no review and no
+secret.
 
-To turn it on, the owner sets, in the repository settings under Secrets and variables, Actions:
-
-- the secret `ANTHROPIC_API_KEY`;
-- the variable `WACHIMAN_OPERATOR`, their GitHub login.
-
-Without the variable no review runs.
+To turn it on, the owner adds the repository secret `CLAUDE_CODE_OAUTH_TOKEN` under Settings,
+Secrets and variables, Actions. Its value comes from `claude setup-token`. The operator login is
+fixed in the workflow, so no repository variable is needed.
 
 ## License
 
