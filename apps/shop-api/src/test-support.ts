@@ -44,3 +44,9 @@ export function createTestClient(shop: ShopApp, cookie?: string) {
   const client: ContractRouterClient<Contract> = createORPCClient(link)
   return { client, statuses }
 }
+
+/** A typed client signed in as the demo user with `role`. */
+export async function clientFor(shop: ShopApp, role: "admin" | "customer") {
+  const user = demoUser(role)
+  return createTestClient(shop, await signInCookie(shop, user.email, user.password))
+}
