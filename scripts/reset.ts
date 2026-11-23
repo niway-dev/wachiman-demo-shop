@@ -9,14 +9,15 @@
  * never pushes (so nothing can be force-pushed).
  */
 import { parseArgs } from "node:util"
-import { git, gitOk, repoRoot, run, tail } from "./scenario-lib.ts"
+import { git, gitOk, repoRoot, run, strandedTip, tail } from "./scenario-lib.ts"
 
-const help = `Usage: bun scripts/reset.ts <tag>
+const help = `Usage: bun scripts/reset.ts [--force] <tag>
 
 Moves this checkout to the local branch work/<tag> at <tag> and resets the database.
 
   1. refuses if the working tree has any uncommitted or untracked change;
-  2. creates or resets the local branch work/<tag> at the tag (git checkout -B);
+  2. creates or resets the local branch work/<tag> at the tag (git checkout -B), and refuses when
+     that would drop commits already on it, unless you pass --force;
   3. runs bun install --frozen-lockfile and bun run db:reset.
 
 Never touches main or any other branch, and never pushes.`
@@ -24,7 +25,7 @@ Never touches main or any other branch, and never pushes.`
 const { values, positionals } = parseArgs({
   args: Bun.argv.slice(2),
   allowPositionals: true,
-  options: { help: { type: "boolean", short: "h" } },
+  options: { help: { type: "boolean", short: "h" }, force: { type: "boolean" } },
 })
 
 if (values.help) {
@@ -56,6 +57,14 @@ if (
 }
 
 const branch = `work/${tag}`
+const stranded = await strandedTip(repoRoot, branch, tag)
+if (stranded && !values.force) {
+  console.error(
+    `refusing to reset: ${branch} has commits not in ${tag} (tip ${stranded}). ` +
+      `Pass --force to drop them (recover later with git branch <name> ${stranded}).`,
+  )
+  process.exit(1)
+}
 const existed =
   (await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`])).code === 0
 await gitOk(repoRoot, ["checkout", "--quiet", "-B", branch, `refs/tags/${tag}`])

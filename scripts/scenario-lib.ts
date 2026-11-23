@@ -559,6 +559,22 @@ export async function patchFiles(
 }
 
 /**
+ * The short sha of local branch `branch` when moving it to `tag` would make commits unreachable
+ * from it (the branch exists and its tip is not an ancestor of the tag); otherwise null.
+ */
+export async function strandedTip(
+  cwd: string,
+  branch: string,
+  tag: string,
+): Promise<string | null> {
+  const tip = await git(cwd, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`])
+  if (tip.code !== 0) return null
+  const sha = tip.stdout.trim()
+  const ancestor = await git(cwd, ["merge-base", "--is-ancestor", sha, `refs/tags/${tag}^{commit}`])
+  return ancestor.code === 0 ? null : sha.slice(0, 7)
+}
+
+/**
  * A temporary git worktree of this repository, detached. Created once per run and reset to a
  * baseline between scenarios; `dispose` removes it (and the branch a report run created).
  */
@@ -572,12 +588,8 @@ export class TempWorktree {
     const dir = mkdtempSync(join(tmpdir(), "demo-shop-scenario-"))
     await gitOk(repoRoot, ["worktree", "add", "--detach", dir, "HEAD"])
     const worktree = new TempWorktree(dir)
-    const cleanup = () => {
-      void worktree.dispose()
-    }
     process.once("SIGINT", () => {
-      cleanup()
-      process.exit(130)
+      void worktree.dispose().finally(() => process.exit(130))
     })
     return worktree
   }

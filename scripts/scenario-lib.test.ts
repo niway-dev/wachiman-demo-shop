@@ -1,15 +1,20 @@
 import { describe, expect, test } from "bun:test"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 // Imported (not read with node:fs) so `bun test --changed` re-runs this file when the fixture changes.
 import sample from "./fixtures/review-result.sample.json"
 import {
   buildSummary,
   failedSummary,
+  gitOk,
   matchFindings,
   neutralTitleProblem,
   parseKey,
   renderTable,
   riskLevel,
   severityClass,
+  strandedTip,
   summarizeScenario,
   type ReviewFinding,
   type ReviewResult,
@@ -288,5 +293,27 @@ describe("buildSummary and renderTable", () => {
       ],
     )
     expect(table.split("\n")).toEqual(["id    n ", "----  --", "s-1   10", "s-22  2 "])
+  })
+})
+
+describe("strandedTip", () => {
+  test("reports a work branch holding commits the tag lacks, and nothing otherwise", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "stranded-tip-"))
+    try {
+      const g = (...args: string[]) =>
+        gitOk(dir, ["-c", "user.name=t", "-c", "user.email=t@t", ...args])
+      await g("init", "--quiet", "-b", "main")
+      await g("commit", "--quiet", "--allow-empty", "-m", "base")
+      await g("tag", "baseline")
+      expect(await strandedTip(dir, "work/baseline", "baseline")).toBeNull()
+      await g("branch", "work/baseline", "baseline")
+      expect(await strandedTip(dir, "work/baseline", "baseline")).toBeNull()
+      await g("checkout", "--quiet", "work/baseline")
+      await g("commit", "--quiet", "--allow-empty", "-m", "mine")
+      const tip = (await gitOk(dir, ["rev-parse", "--short=7", "HEAD"])).trim()
+      expect(await strandedTip(dir, "work/baseline", "baseline")).toBe(tip)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
