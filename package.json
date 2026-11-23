@@ -1,0 +1,47 @@
+{
+  "name": "wachiman-demo-shop",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "bun@1.4.5-canary.20261122.1",
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*",
+      "scripts"
+    ],
+    "catalog": {
+      "effect": "4.1.5",
+      "@tanstack/react-start": "1.169.7",
+      "@tanstack/react-router": "1.170.46",
+      "better-auth": "1.7.27",
+      "drizzle-orm": "0.45.4",
+      "drizzle-kit": "0.31.11",
+      "hono": "4.13.20",
+      "@orpc/contract": "1.16.5",
+      "@orpc/server": "1.16.5",
+      "@orpc/client": "1.16.5",
+      "react": "19.3.1",
+      "react-dom": "19.3.1",
+      "zod": "4.6.7",
+      "typescript": "7.0.2",
+      "vite": "8.3.8",
+      "@vitejs/plugin-react": "6.3.0",
+      "@types/bun": "1.4.5",
+      "@types/react": "19.3.0",
+      "@types/react-dom": "19.3.0"
+    }
+  },
+  "scripts": {
+    "dev": "bun scripts/ensure-env.ts && bun run --parallel --filter './apps/*' dev",
+    "build": "bun run --filter './apps/*' build",
+    "test": "bun test",
+    "db:reset": "bun scripts/db-reset.ts",
+    "db:generate": "bun run --filter '@demo-shop/infra-db' generate"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

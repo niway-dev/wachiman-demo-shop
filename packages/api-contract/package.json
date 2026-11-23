@@ -1,0 +1,14 @@
+{
+  "name": "@demo-shop/api-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@demo-shop/domain": "workspace:*",
+    "@orpc/contract": "catalog:",
+    "zod": "catalog:"
+  }
+}

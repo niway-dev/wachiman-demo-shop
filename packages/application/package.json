@@ -1,0 +1,14 @@
+{
+  "name": "@demo-shop/application",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {
+    "@demo-shop/domain": "workspace:*",
+    "effect": "catalog:"
+  }
+}
