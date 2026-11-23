@@ -6,7 +6,7 @@
  * finding matcher, the summary builder, the table renderer), which are unit tested, and the thin
  * git and worktree helpers around them. Nothing here calls the network.
  */
-import { existsSync, mkdtempSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { isAbsolute, join, normalize } from "node:path"
 
@@ -419,6 +419,38 @@ export function failedSummary(id: string, key: ScenarioKey, error: string): Scen
     pass: false,
     warnings: [],
   }
+}
+
+/**
+ * Rebuilds a label's rows from the per-scenario `<id>.json` files that exist in `dir`, and only
+ * from them. A file that cannot be read or parsed becomes an error row for that scenario; it never
+ * falls back to an older row. A missing directory or one with no scenario JSON throws, so the
+ * caller writes nothing.
+ */
+export async function rowsFromSavedJson(
+  dir: string,
+  loadKey: (id: string) => Promise<ScenarioKey>,
+): Promise<{ rows: ScenarioSummary[]; engineVersion?: string }> {
+  if (!existsSync(dir)) throw new Error(`no saved runs at ${dir}; check the label`)
+  const ids = readdirSync(dir)
+    .map((name) => /^(.+)\.json$/.exec(name)?.[1])
+    .filter((id): id is string => id !== undefined && ID_PATTERN.test(id))
+    .sort()
+  if (ids.length === 0) throw new Error(`no scenario JSON (<id>.json) in ${dir}`)
+  const rows: ScenarioSummary[] = []
+  let engineVersion: string | undefined
+  for (const id of ids) {
+    const key = await loadKey(id)
+    try {
+      const json = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8")) as ReviewResult
+      if (json === null || typeof json !== "object") throw new Error("not a JSON object")
+      engineVersion = json.engine?.version ?? engineVersion
+      rows.push(summarizeScenario(id, key, json))
+    } catch (error) {
+      rows.push(failedSummary(id, key, `${id}.json is unreadable: ${(error as Error).message}`))
+    }
+  }
+  return { rows, engineVersion }
 }
 
 export function buildSummary(

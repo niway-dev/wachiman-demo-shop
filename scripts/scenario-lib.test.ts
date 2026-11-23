@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mkdtempSync, rmSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 // Imported (not read with node:fs) so `bun test --changed` re-runs this file when the fixture changes.
@@ -14,6 +14,7 @@ import {
   renderTable,
   resolveWachimanArgv,
   riskLevel,
+  rowsFromSavedJson,
   severityClass,
   strandedTip,
   summarizeScenario,
@@ -360,5 +361,66 @@ describe("strandedTip", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe("rowsFromSavedJson", () => {
+  const loadKey = async () => parseKey(defectKey).key as ScenarioKey
+  const withDir = async (fn: (dir: string) => Promise<void>) => {
+    const dir = mkdtempSync(join(tmpdir(), "rows-"))
+    try {
+      await fn(dir)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  test("a corrupt JSON file is an error row, never an old row", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
+      writeFileSync(join(dir, "s-002.json"), "{ not json")
+      writeFileSync(join(dir, "summary.json"), "stale")
+      const { rows } = await rowsFromSavedJson(dir, loadKey)
+      expect(rows.map((r) => [r.id, r.status])).toEqual([
+        ["s-001", "ok"],
+        ["s-002", "run-failed"],
+      ])
+      expect(rows[1]?.error).toContain("s-002.json is unreadable")
+    })
+  })
+
+  test("an unreadable file (a directory) is an error row", async () => {
+    await withDir(async (dir) => {
+      mkdirSync(join(dir, "s-003.json"))
+      const { rows } = await rowsFromSavedJson(dir, loadKey)
+      expect(rows[0]?.status).toBe("run-failed")
+    })
+  })
+
+  test("a missing label directory throws and writes nothing", async () => {
+    await withDir(async (dir) => {
+      const missing = join(dir, "typo")
+      await expect(rowsFromSavedJson(missing, loadKey)).rejects.toThrow("no saved runs")
+      expect(() => readFileSync(join(missing, "summary.json"))).toThrow()
+    })
+  })
+
+  test("rows only for scenarios that have JSON, none invented from a summary", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
+      writeFileSync(
+        join(dir, "summary.json"),
+        JSON.stringify({ scenarios: [{ id: "s-001" }, { id: "s-009" }] }),
+      )
+      const { rows } = await rowsFromSavedJson(dir, loadKey)
+      expect(rows.map((r) => r.id)).toEqual(["s-001"])
+    })
+  })
+
+  test("a directory without scenario JSON throws", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "summary.json"), "{}")
+      await expect(rowsFromSavedJson(dir, loadKey)).rejects.toThrow("no scenario JSON")
+    })
   })
 })

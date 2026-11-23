@@ -25,6 +25,7 @@ import {
   readScenario,
   renderTable,
   repoRoot,
+  rowsFromSavedJson,
   resolveWachimanArgv,
   resolveScenarioRef,
   run,
@@ -211,36 +212,17 @@ async function summarizeCommand(label: string): Promise<number> {
   checkLabel(label)
   const ref = await resolveScenarioRef(values.branch)
   const dir = labelDir(label)
-  let old: Summary | null = null
-  try {
-    old = JSON.parse(readFileSync(join(dir, "summary.json"), "utf8")) as Summary
-  } catch {
-    old = null
-  }
-  const ids = old ? old.scenarios.map((s) => s.id) : await listScenarioIds(ref)
-  const summaries: ScenarioSummary[] = []
-  let engineVersion = old?.engineVersion ?? "unknown"
-  for (const id of ids) {
+  const { rows, engineVersion } = await rowsFromSavedJson(dir, async (id) => {
     const { key, errors } = parseKey((await readScenario(ref, id)).keyText)
     if (!key) throw new Error(`scenarios/${id}/key.yml is invalid:\n  - ${errors.join("\n  - ")}`)
-    let json: ReviewResult
-    try {
-      json = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8")) as ReviewResult
-    } catch {
-      // No saved JSON: that run failed. Keep its old row when there is one.
-      summaries.push(
-        old?.scenarios.find((s) => s.id === id) ?? failedSummary(id, key, "no saved JSON"),
-      )
-      continue
-    }
-    engineVersion = json.engine?.version ?? engineVersion
-    summaries.push(summarizeScenario(id, key, json))
-  }
-  const summary = buildSummary(label, engineVersion, summaries)
+    return key
+  })
+  const summary = buildSummary(label, engineVersion ?? "unknown", rows)
   writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`)
   console.log(`label: ${label}  (${dir})\n`)
   printSummary(summary)
-  return 0
+  // Same as `run`: non-zero when any scenario has no usable result.
+  return rows.every((s) => s.status === "ok") ? 0 : 1
 }
 
 function readSummary(label: string): Summary {
@@ -259,7 +241,8 @@ function compareCommand(a: string, b: string): number {
   const find = (s: Summary, id: string) => s.scenarios.find((x) => x.id === id)
   const cell = (s: ScenarioSummary | undefined, pick: (x: ScenarioSummary) => string) =>
     s ? pick(s) : "-"
-  const matched = (x: ScenarioSummary) => (x.pass ? "yes" : "no")
+  const matched = (x: ScenarioSummary) =>
+    x.pass ? (x.expected.some((e) => e.lowOnly) ? "yes (low)" : "yes") : "no"
   const rows = ids.map((id) => {
     const l = find(left, id)
     const r = find(right, id)
