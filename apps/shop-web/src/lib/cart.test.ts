@@ -10,7 +10,7 @@ import {
 } from "./cart.ts"
 
 describe("quantity input", () => {
-  test("an empty or non-positive entry is ignored, so the line is kept mid-edit", () => {
+  test("an empty or non-positive entry is ignored, so the line is kept", () => {
     for (const raw of ["", " ", "0", "-3", "abc"]) expect(parseQuantityInput(raw)).toBeUndefined()
   })
 

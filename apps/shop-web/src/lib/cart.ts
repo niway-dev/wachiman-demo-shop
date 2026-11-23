@@ -27,7 +27,8 @@ export function addItem(items: readonly CartItem[], productId: string, quantity 
 
 /**
  * Reads what the user typed in a quantity box. Returns undefined for an empty or non-positive
- * entry (a mid-edit state), so the caller keeps the line; removal belongs to the Remove button.
+ * entry, so the caller keeps the line (the box snaps back to the stored quantity); removal belongs to
+ * the Remove button.
  */
 export function parseQuantityInput(raw: string): number | undefined {
   const value = Number(raw)

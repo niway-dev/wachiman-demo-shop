@@ -75,7 +75,7 @@ describe("infra-db", () => {
     const count = (sqlite: ReturnType<typeof freshDatabase>["sqlite"], table: string) =>
       sqlite.query<{ n: number }, []>(`select count(*) as n from ${table}`).get()?.n
 
-    test("a failing line rolls back the stock of the earlier lines and writes no order", async () => {
+    test("a failing line rolls back the stock of the earlier lines and writes no order or redemption", async () => {
       const { handle, layer, headers } = shopWithCustomer()
       const error = await Effect.runPromise(
         Effect.flip(
