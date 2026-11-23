@@ -9,8 +9,9 @@
 1. **Line promotion**: per line, only the single best [promotion](promotions.md).
 2. **Coupon**: at most one [coupon](coupons.md), taken off the subtotal after line discounts. An
    invalid coupon takes off 0 and the reason is returned in `couponRejection`.
-3. **Spend threshold**: 1000 off when the subtotal after line discounts is at least 10000. The
-   coupon does **not** reduce the amount the threshold looks at.
+3. **Spend threshold**: 1000 off when the subtotal after line discounts and after the coupon is at
+   least 10000. A coupon therefore reduces the amount the threshold looks at, so a large coupon can
+   take a cart below the threshold.
 4. **Floor**: `total = max(0, discountedSubtotal - couponDiscount - thresholdDiscount)`.
 
 ## Breakdown
