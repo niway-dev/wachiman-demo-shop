@@ -1,0 +1,18 @@
+diff --git a/packages/domain/src/discount.ts b/packages/domain/src/discount.ts
+index c59739e..88feb70 100644
+--- a/packages/domain/src/discount.ts
++++ b/packages/domain/src/discount.ts
+@@ -21,7 +21,12 @@ export function percentageDiscount(amount: Money, percent: number): Money {
+   if (amount < 0) {
+     throw new RangeError(`Amount must not be negative, got ${amount}`)
+   }
+-  return money(Math.floor((amount * percent + 50) / 100))
++  const scaled = amount * percent
++  const whole = Math.floor(scaled / 100)
++  const rest = scaled - whole * 100
++  if (rest > 50) return money(whole + 1)
++  if (rest === 50) return money(whole % 2 === 0 ? whole : whole + 1)
++  return money(whole)
+ }
+ 
+ /**

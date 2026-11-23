@@ -1,0 +1,34 @@
+diff --git a/packages/domain/src/coupon.ts b/packages/domain/src/coupon.ts
+index a855417..b7cc78e 100644
+--- a/packages/domain/src/coupon.ts
++++ b/packages/domain/src/coupon.ts
+@@ -32,6 +32,18 @@ export interface CouponCheck {
+   readonly orderHasCoupon?: boolean
+ }
+ 
++const DAY_MS = 86_400_000
++
++/**
++ * A coupon created from a date alone (the admin form) is stored at midnight
++ * of that date, and it stops working once its calendar day is reached.
++ */
++function expiresByDate(coupon: Coupon, now: number): boolean {
++  if (coupon.expiresAt % DAY_MS !== 0) return false
++  const day = (ms: number) => new Date(ms).toLocaleDateString("en-CA")
++  return day(now) >= day(coupon.expiresAt)
++}
++
+ /**
+  * Rule: a coupon is usable only when all of these hold, checked in this order
+  * and reported as the first failing reason:
+@@ -48,7 +60,9 @@ export interface CouponCheck {
+ export function validateCoupon(coupon: Coupon | undefined, check: CouponCheck): CouponValidation {
+   if (coupon === undefined) return { ok: false, reason: "not_found" }
+   if (check.orderHasCoupon === true) return { ok: false, reason: "already_applied" }
+-  if (check.now >= coupon.expiresAt) return { ok: false, reason: "expired" }
++  if (check.now >= coupon.expiresAt || expiresByDate(coupon, check.now)) {
++    return { ok: false, reason: "expired" }
++  }
+   if (check.redemptions >= coupon.usageLimit) return { ok: false, reason: "exhausted" }
+   return { ok: true, coupon }
+ }

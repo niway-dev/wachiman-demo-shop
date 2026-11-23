@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v2
+title: Expire date-only coupons by calendar day
+files:
+  - packages/domain/src/coupon.ts
+expected:
+  - file: packages/domain/src/coupon.ts
+    lines: [41, 45]
+    must_mention: the calendar day is read in the machine's local time zone instead of UTC, so a date-only coupon stops working hours before its UTC midnight expiry for any server not on UTC

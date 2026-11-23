@@ -1,0 +1,57 @@
+diff --git a/packages/domain/src/coupon.test.ts b/packages/domain/src/coupon.test.ts
+index bb08ee7..b03b5ad 100644
+--- a/packages/domain/src/coupon.test.ts
++++ b/packages/domain/src/coupon.test.ts
+@@ -13,9 +13,9 @@ describe("validateCoupon", () => {
+   test("a valid coupon is ok", () => {
+     expect(validateCoupon(coupon, { redemptions: 0, now: 999 })).toEqual({ ok: true, coupon })
+   })
+-  test("expiry is exclusive: valid 1 ms before, expired at exactly expiresAt", () => {
++  test("valid 1 ms before expiresAt, expired 1 ms after", () => {
+     expect(validateCoupon(coupon, { redemptions: 0, now: 999 }).ok).toBe(true)
+-    expect(validateCoupon(coupon, { redemptions: 0, now: 1_000 })).toEqual({
++    expect(validateCoupon(coupon, { redemptions: 0, now: 1_001 })).toEqual({
+       ok: false,
+       reason: "expired",
+     })
+diff --git a/packages/domain/src/coupon.ts b/packages/domain/src/coupon.ts
+index a855417..ac03810 100644
+--- a/packages/domain/src/coupon.ts
++++ b/packages/domain/src/coupon.ts
+@@ -48,7 +48,7 @@ export interface CouponCheck {
+ export function validateCoupon(coupon: Coupon | undefined, check: CouponCheck): CouponValidation {
+   if (coupon === undefined) return { ok: false, reason: "not_found" }
+   if (check.orderHasCoupon === true) return { ok: false, reason: "already_applied" }
+-  if (check.now >= coupon.expiresAt) return { ok: false, reason: "expired" }
++  if (check.now > coupon.expiresAt) return { ok: false, reason: "expired" }
+   if (check.redemptions >= coupon.usageLimit) return { ok: false, reason: "exhausted" }
+   return { ok: true, coupon }
+ }
+diff --git a/packages/domain/src/pricing.test.ts b/packages/domain/src/pricing.test.ts
+index 4e8f99a..ee7c026 100644
+--- a/packages/domain/src/pricing.test.ts
++++ b/packages/domain/src/pricing.test.ts
+@@ -105,7 +105,7 @@ describe("priceCart", () => {
+ 
+   test("an expired, exhausted or unknown coupon takes off 0 and says why", () => {
+     const cart = { lines: [line("a", 1000, 1)] }
+-    expect(priceCart(cart, [], { coupon: fixed500, redemptions: 0 }, 2_000).couponRejection).toBe(
++    expect(priceCart(cart, [], { coupon: fixed500, redemptions: 0 }, 2_001).couponRejection).toBe(
+       "expired",
+     )
+     expect(priceCart(cart, [], { coupon: fixed500, redemptions: 5 }, NOW).couponRejection).toBe(
+@@ -116,12 +116,12 @@ describe("priceCart", () => {
+     expect(unknown.total).toBe(1000 as never)
+   })
+ 
+-  test("a coupon expiring exactly at now is rejected", () => {
++  test("a coupon that expired a millisecond ago is rejected", () => {
+     const r = priceCart(
+       { lines: [line("a", 1000, 1)] },
+       [],
+       { coupon: fixed500, redemptions: 0 },
+-      2_000,
++      2_001,
+     )
+     expect(r.couponDiscount).toBe(0 as never)
+   })

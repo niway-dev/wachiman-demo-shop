@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v2
+title: Rework percentage discount arithmetic
+files:
+  - packages/domain/src/discount.ts
+expected:
+  - file: packages/domain/src/discount.ts
+    lines: [24, 29]
+    must_mention: an exact half is now rounded to the even unit (198.5 gives 198) instead of up as the documented rule says, so some percentage discounts are one cent smaller

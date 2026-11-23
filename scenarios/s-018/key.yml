@@ -1,0 +1,11 @@
+kind: defect
+baseline: baseline-v2
+title: Adjust coupon validity check
+files:
+  - packages/domain/src/coupon.test.ts
+  - packages/domain/src/coupon.ts
+  - packages/domain/src/pricing.test.ts
+expected:
+  - file: packages/domain/src/coupon.ts
+    lines: [51, 51]
+    must_mention: the comparison is now strict, so a coupon is still valid at exactly its expiresAt instant, against the documented rule that expiry is exclusive of that instant (the test was changed to match)
