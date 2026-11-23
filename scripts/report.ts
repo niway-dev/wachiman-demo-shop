@@ -58,7 +58,11 @@ run      for each scenario (or the ids given): plant it in a temporary worktree 
          label per version, then compare.
 summarize  rebuild summary.json and the table of a label from its saved <id>.json files and the
          keys on the scenarios branch. Calls no Wachiman and spends nothing; use it after
-         changing the matching rules.
+         changing the matching rules. Exit code: 0 when every scenario has a usable result, 1
+         when any row is a failure. A scenario whose run failed (no <id>.json) keeps its failed
+         row from summary.json; one that summary.json called ok but has no JSON, or whose JSON
+         or key is unusable, becomes a failed row. If summary.json exists but cannot be parsed,
+         it exits non-zero and writes nothing.
 compare  the two labels side by side per scenario (duration, cost, matched or not) and totals.
 
 This is a regression check between Wachiman versions on a small fixed set. It is not a score,

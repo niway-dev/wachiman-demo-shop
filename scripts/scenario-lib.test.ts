@@ -379,7 +379,6 @@ describe("rowsFromSavedJson", () => {
     await withDir(async (dir) => {
       writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
       writeFileSync(join(dir, "s-002.json"), "{ not json")
-      writeFileSync(join(dir, "summary.json"), "stale")
       const { rows } = await rowsFromSavedJson(dir, loadKey)
       expect(rows.map((r) => [r.id, r.status])).toEqual([
         ["s-001", "ok"],
@@ -405,21 +404,74 @@ describe("rowsFromSavedJson", () => {
     })
   })
 
-  test("rows only for scenarios that have JSON, none invented from a summary", async () => {
+  test("a failed row in summary.json survives without JSON; an ok row without JSON fails", async () => {
     await withDir(async (dir) => {
       writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
+      const failed = failedSummary("s-002", key(), "boom")
+      const claimedOk = { ...failedSummary("s-003", key(), ""), status: "ok" }
       writeFileSync(
         join(dir, "summary.json"),
-        JSON.stringify({ scenarios: [{ id: "s-001" }, { id: "s-009" }] }),
+        JSON.stringify({ scenarios: [{ id: "s-001" }, failed, claimedOk] }),
       )
+      const { rows } = await rowsFromSavedJson(dir, loadKey)
+      expect(rows.map((r) => [r.id, r.status])).toEqual([
+        ["s-001", "ok"],
+        ["s-002", "run-failed"],
+        ["s-003", "run-failed"],
+      ])
+      expect(rows[1]?.error).toBe("boom")
+      expect(rows[2]?.error).toContain("no saved JSON for an ok row")
+    })
+  })
+
+  test("scenarios in neither source get no row; summary-only ids are not invented", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
+      writeFileSync(join(dir, "summary.json"), JSON.stringify({ scenarios: [{ id: "bogus" }] }))
       const { rows } = await rowsFromSavedJson(dir, loadKey)
       expect(rows.map((r) => r.id)).toEqual(["s-001"])
     })
   })
 
+  test("an unparsable summary.json throws", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
+      writeFileSync(join(dir, "summary.json"), "stale")
+      await expect(rowsFromSavedJson(dir, loadKey)).rejects.toThrow("cannot be read")
+    })
+  })
+
+  test("JSON of the wrong shape is an error row, not an ok row", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "s-001.json"), "{}")
+      writeFileSync(join(dir, "s-002.json"), "[]")
+      writeFileSync(join(dir, "s-003.json"), JSON.stringify({ findings: [], execution: [] }))
+      const { rows } = await rowsFromSavedJson(dir, loadKey)
+      expect(rows.map((r) => r.status)).toEqual(["run-failed", "run-failed", "run-failed"])
+      expect(rows[0]?.error).toContain("no findings array")
+    })
+  })
+
+  test("an invalid key fails that scenario and the others continue", async () => {
+    await withDir(async (dir) => {
+      writeFileSync(join(dir, "s-001.json"), JSON.stringify(sample))
+      writeFileSync(join(dir, "s-002.json"), JSON.stringify(sample))
+      const pick = async (id: string) => {
+        if (id === "s-001") throw new Error("stale key")
+        return loadKey()
+      }
+      const { rows } = await rowsFromSavedJson(dir, pick)
+      expect(rows.map((r) => [r.id, r.status])).toEqual([
+        ["s-001", "run-failed"],
+        ["s-002", "ok"],
+      ])
+      expect(rows[0]?.error).toContain("stale key")
+    })
+  })
+
   test("a directory without scenario JSON throws", async () => {
     await withDir(async (dir) => {
-      writeFileSync(join(dir, "summary.json"), "{}")
+      writeFileSync(join(dir, "summary.json"), JSON.stringify({ scenarios: [] }))
       await expect(rowsFromSavedJson(dir, loadKey)).rejects.toThrow("no scenario JSON")
     })
   })

@@ -122,6 +122,12 @@ per version (each with its own `--wachiman` or `WACHIMAN_BIN`), then `compare` t
 and the keys, without calling Wachiman. Use it to check a change to the matching rules against an
 existing run for free.
 
+`summarize` exits 0 only when every row is ok. A scenario whose run failed leaves no `<id>.json`, so
+it keeps its failed row from the old `summary.json`; a scenario that `summary.json` listed as ok but
+that has no JSON, whose JSON has the wrong shape, or whose key is invalid becomes a failed row and
+the rest still summarize. A scenario in neither the JSON files nor `summary.json` gets no row. If
+`summary.json` exists but cannot be parsed, `summarize` exits non-zero and writes nothing.
+
 `compare` prints two labels side by side. Read it as a regression check on a small fixed set: a
 scenario that went from matched to not matched, or a cost that doubled, is worth a look. It is not
 a score.

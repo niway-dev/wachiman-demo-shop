@@ -421,29 +421,87 @@ export function failedSummary(id: string, key: ScenarioKey, error: string): Scen
   }
 }
 
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  v !== null && typeof v === "object" && !Array.isArray(v)
+
+/** Throws unless `json` has the fields `summarizeScenario` reads, with the right types. */
+function assertReviewShape(json: unknown): asserts json is ReviewResult {
+  if (!isObject(json)) throw new Error("not a JSON object")
+  if (!Array.isArray(json.findings)) throw new Error("no findings array")
+  if (!isObject(json.execution)) throw new Error("no execution object")
+  const { coverage, batches } = json
+  if (coverage !== undefined && !(isObject(coverage) && Array.isArray(coverage.reviewed))) {
+    throw new Error("coverage.reviewed is not an array")
+  }
+  if (batches !== undefined && !Array.isArray(batches)) throw new Error("batches is not an array")
+}
+
 /**
- * Rebuilds a label's rows from the per-scenario `<id>.json` files that exist in `dir`, and only
- * from them. A file that cannot be read or parsed becomes an error row for that scenario; it never
- * falls back to an older row. A missing directory or one with no scenario JSON throws, so the
- * caller writes nothing.
+ * Rebuilds a label's rows from the per-scenario `<id>.json` files in `dir`. When `summary.json`
+ * exists it must parse (else this throws and the caller writes nothing) and it also names scenarios
+ * whose run failed and so left no JSON: such a scenario keeps its failed row, and a row that
+ * claimed ok without JSON becomes a failed row. A scenario in neither source gets no row. A file
+ * that cannot be read, parsed or has the wrong shape, or a key that cannot be loaded, becomes a
+ * failed row for that scenario and never falls back to an older row. A missing directory, or no
+ * rows at all, throws.
  */
 export async function rowsFromSavedJson(
   dir: string,
   loadKey: (id: string) => Promise<ScenarioKey>,
 ): Promise<{ rows: ScenarioSummary[]; engineVersion?: string }> {
   if (!existsSync(dir)) throw new Error(`no saved runs at ${dir}; check the label`)
-  const ids = readdirSync(dir)
+  const summaryFile = join(dir, "summary.json")
+  const previous = new Map<string, ScenarioSummary>()
+  if (existsSync(summaryFile)) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(readFileSync(summaryFile, "utf8"))
+    } catch (error) {
+      throw new Error(`${summaryFile} cannot be read: ${(error as Error).message}`)
+    }
+    if (!isObject(parsed) || !Array.isArray(parsed.scenarios)) {
+      throw new Error(`${summaryFile} has no scenarios array`)
+    }
+    for (const row of parsed.scenarios) {
+      if (isObject(row) && typeof row.id === "string" && ID_PATTERN.test(row.id)) {
+        previous.set(row.id, row as unknown as ScenarioSummary)
+      }
+    }
+  }
+  const jsonIds = readdirSync(dir)
     .map((name) => /^(.+)\.json$/.exec(name)?.[1])
     .filter((id): id is string => id !== undefined && ID_PATTERN.test(id))
-    .sort()
+  const ids = [...new Set([...jsonIds, ...previous.keys()])].sort()
   if (ids.length === 0) throw new Error(`no scenario JSON (<id>.json) in ${dir}`)
   const rows: ScenarioSummary[] = []
   let engineVersion: string | undefined
   for (const id of ids) {
-    const key = await loadKey(id)
+    const old = previous.get(id)
+    let key: ScenarioKey
     try {
-      const json = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8")) as ReviewResult
-      if (json === null || typeof json !== "object") throw new Error("not a JSON object")
+      key = await loadKey(id)
+    } catch (error) {
+      const stub = { kind: old?.kind ?? KINDS[0], title: old?.title ?? id, files: [] }
+      rows.push(
+        failedSummary(
+          id,
+          stub as unknown as ScenarioKey,
+          `key is unusable: ${(error as Error).message}`,
+        ),
+      )
+      continue
+    }
+    if (!jsonIds.includes(id)) {
+      rows.push(
+        old?.status === "run-failed"
+          ? old
+          : failedSummary(id, key, `no saved JSON for an ok row (${id}.json is missing)`),
+      )
+      continue
+    }
+    try {
+      const json: unknown = JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8"))
+      assertReviewShape(json)
       engineVersion = json.engine?.version ?? engineVersion
       rows.push(summarizeScenario(id, key, json))
     } catch (error) {
