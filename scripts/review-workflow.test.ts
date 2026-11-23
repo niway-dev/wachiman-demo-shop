@@ -2,51 +2,52 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-// Pins the rule that only same-repository pull requests from the operator (a repository variable) are reviewed,
-// because the review runs with the owner's API key. This test reads the workflow with node:fs, so
-// `bun test --changed` cannot see the link; ci.yml runs the full suite when the workflow changes.
+// Pins the rule that only pull requests from branches of this repository are reviewed, and that the review
+// runs on the operator's Claude subscription token, so a fork must never reach that secret. This test reads the
+// workflow with node:fs, so `bun test --changed` cannot see the link; ci.yml runs the full suite when the workflow changes.
 const file = join(import.meta.dir, "..", ".github", "workflows", "review.yml")
+const source = readFileSync(file, "utf8")
 
 type Workflow = {
   on: Record<string, unknown> | string | string[]
-  jobs: Record<string, { if?: string; uses?: string; with?: Record<string, unknown> }>
+  jobs: Record<
+    string,
+    {
+      if?: string
+      uses?: string
+      with?: Record<string, unknown>
+      secrets?: Record<string, unknown>
+    }
+  >
 }
 
-const workflow = Bun.YAML.parse(readFileSync(file, "utf8")) as Workflow
+const workflow = Bun.YAML.parse(source) as Workflow
 const triggers = Object.keys(typeof workflow.on === "object" ? workflow.on : {})
-const condition = (workflow.jobs.review?.if ?? "").replace(/\s+/g, " ")
+const condition = (workflow.jobs.review?.if ?? "").replace(/\s+/g, " ").trim()
 
-describe("review workflow (fork and author gate)", () => {
+describe("review workflow (fork gate)", () => {
   test("triggers on pull_request only", () => {
     expect(triggers).toEqual(["pull_request"])
-    expect(readFileSync(file, "utf8")).not.toMatch(/^\s*pull_request_target\s*:/m)
+    expect(source).not.toMatch(/^\s*pull_request_target\s*:/m)
   })
 
-  test("requires the branch to live in this repository", () => {
-    expect(condition).toContain(
-      "github.event.pull_request.head.repo.full_name == github.repository",
-    )
+  test("runs only when the branch lives in this repository", () => {
+    expect(condition).toBe("github.event.pull_request.head.repo.full_name == github.repository")
   })
 
-  test("requires the author to be the operator login", () => {
-    expect(condition).toContain("github.event.pull_request.user.login == vars.WACHIMAN_OPERATOR")
+  test("passes the fixed operator login csdev19 as the operator input", () => {
+    expect(workflow.jobs.review?.with?.operator).toBe("csdev19")
   })
 
-  test("does nothing while the operator variable is empty", () => {
-    expect(condition).toContain("vars.WACHIMAN_OPERATOR != ''")
+  test("passes only the Claude subscription token secret", () => {
+    expect(workflow.jobs.review?.secrets).toEqual({
+      CLAUDE_CODE_OAUTH_TOKEN: "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+    })
   })
 
-  test("passes the operator variable as the operator input", () => {
-    expect(workflow.jobs.review?.with?.operator).toBe("${{ vars.WACHIMAN_OPERATOR }}")
-  })
-
-  test("does not depend on author_association", () => {
-    expect(condition).not.toContain("author_association")
-    expect(condition).not.toMatch(/\|\|/)
-    const lines = readFileSync(file, "utf8")
-      .split("\n")
-      .filter((l) => !l.trim().startsWith("#"))
-    expect(lines.join("\n")).not.toContain("author_association")
+  test("does not use the API key or the operator variable", () => {
+    expect(source).not.toContain("ANTHROPIC_API_KEY")
+    expect(source).not.toContain("WACHIMAN_OPERATOR")
   })
 
   test("pins an exact release tag", () => {

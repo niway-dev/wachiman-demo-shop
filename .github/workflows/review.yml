@@ -1,15 +1,17 @@
 name: Wachiman review
 
-# Why forks are excluded: the review runs with the owner's API key. GitHub never gives secrets to a
-# fork's pull request, and `pull_request_target` would hand them to code the fork controls, so this
-# workflow uses `on: pull_request` only, and the job also requires that the branch lives in this
-# repository.
+# Why forks are excluded: GitHub gives no secrets to a fork's pull request, and `pull_request_target`
+# is never used, because it would hand the secret to code a fork controls. So this workflow runs on
+# `on: pull_request` only, and the job runs only when the branch lives in this repository.
 #
-# Why the gate is the operator variable and not `author_association`: this repository belongs to an
-# organization whose members are private, and GitHub reports a private member as CONTRIBUTOR in event
-# payloads, so an OWNER/MEMBER check skips the owner's own pull requests. The repository variable
-# WACHIMAN_OPERATOR holds the owner's GitHub login; the job runs only for that author, and not at all
-# while the variable is empty. scripts/review-workflow.test.ts pins the gate.
+# Every pull request from a branch of this repository is reviewed. Only people with write access can
+# push branches here, so the gate does not need a login list.
+#
+# The review runs on the Claude subscription behind the repository secret CLAUDE_CODE_OAUTH_TOKEN
+# (create the value with `claude setup-token`).
+#
+# `operator` is required by the reusable workflow. It only decides who may start a run by comment;
+# the automatic review never checks it.
 #
 # The `uses:` ref is an exact release tag, never a branch or the floating `v1`.
 on:
@@ -23,12 +25,9 @@ permissions:
 
 jobs:
   review:
-    if: >-
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      vars.WACHIMAN_OPERATOR != '' &&
-      github.event.pull_request.user.login == vars.WACHIMAN_OPERATOR
+    if: github.event.pull_request.head.repo.full_name == github.repository
     uses: niway-dev/wachiman/.github/workflows/review.yml@v1.19.0
     with:
-      operator: ${{ vars.WACHIMAN_OPERATOR }}
+      operator: csdev19
     secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
