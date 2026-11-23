@@ -1,0 +1,16 @@
+kind: design
+baseline: baseline-v2
+title: Explain the money helpers in comments
+files:
+  - packages/domain/src/money.ts
+# must NOT be flagged: line 55 (pointer to docs/features/money.md); no tool directive is added (none fits without breaking the type check)
+expected:
+  - file: packages/domain/src/money.ts
+    lines: [19, 19]
+    must_mention: Comment (excuse); the comment blames a flaky lookup and a retry, but the line below only casts the value and nothing is retried or looked up
+  - file: packages/domain/src/money.ts
+    lines: [39, 39]
+    must_mention: Comment (stale); the comment says the result is never negative, but subtract returns a negative amount when b is larger than a, as the doc comment above says
+  - file: packages/domain/src/money.ts
+    lines: [69, 69]
+    must_mention: Comment (tautology); the comment only restates what Math.abs(amount) says on the next line
