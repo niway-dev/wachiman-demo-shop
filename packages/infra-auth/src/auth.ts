@@ -37,6 +37,7 @@ export function createAuth(options: AuthOptions) {
       },
     }),
     emailAndPassword: { enabled: true },
+    session: { expiresIn: 60 * 60 * 24 * 30 },
     user: {
       additionalFields: {
         role: { type: "string", required: false, defaultValue: "customer", input: false },
