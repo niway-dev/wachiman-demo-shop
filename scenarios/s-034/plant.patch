@@ -1,0 +1,22 @@
+diff --git a/packages/application/src/checkout.ts b/packages/application/src/checkout.ts
+index fa310f9..7f5a358 100644
+--- a/packages/application/src/checkout.ts
++++ b/packages/application/src/checkout.ts
+@@ -28,7 +28,7 @@ export interface CartInput {
+   readonly couponCode?: string | undefined
+ }
+ 
+-/** Codes are stored upper-case; a blank code means "no coupon". */
++/** Codes are stored in upper case; a blank code means "no coupon". */
+ const normalizeCode = (code: string | undefined): string | undefined => {
+   const trimmed = code?.trim().toUpperCase()
+   return trimmed ? trimmed : undefined
+@@ -122,7 +122,7 @@ export const checkout = (headers: Headers, input: CartInput) =>
+           return yield* new CouponRejected({ reason: priced.couponRejection })
+         }
+ 
+-        // Stock: the domain function decides; we only store what it returns.
++        // Stock: the domain function decides, and this code only stores the value it returns.
+         for (const line of cart.lines) {
+           const product = products.get(line.productId)!
+           const next = nextStock(product.stock, line.quantity)

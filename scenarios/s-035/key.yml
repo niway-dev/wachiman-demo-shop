@@ -1,0 +1,10 @@
+kind: design
+baseline: baseline-v2
+title: Simplify the redemption counter
+files:
+  - packages/domain/src/stock.test.ts
+  - packages/domain/src/stock.ts
+expected:
+  - file: packages/domain/src/stock.ts
+    lines: [40, 41]
+    must_mention: the coupon usage-limit guard in nextRedemptionCount was removed together with the test that protected it, so the last line of defense against over-redeeming is gone and nothing would notice

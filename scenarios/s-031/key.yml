@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v2
+title: Update promotion table defaults
+files:
+  - packages/infra-db/drizzle/0001_carts.sql
+expected:
+  - file: packages/infra-db/drizzle/0001_carts.sql
+    lines: [45, 45]
+    must_mention: an already applied migration was edited in place (promotions.active default changed from true to false) instead of adding a new migration, so existing databases keep the old schema and new ones differ

@@ -1,0 +1,38 @@
+diff --git a/packages/domain/src/stock.test.ts b/packages/domain/src/stock.test.ts
+index 309ffbd..28f3650 100644
+--- a/packages/domain/src/stock.test.ts
++++ b/packages/domain/src/stock.test.ts
+@@ -22,7 +22,4 @@ describe("nextRedemptionCount", () => {
+     expect(nextRedemptionCount(0, 3)).toEqual({ ok: true, value: 1 })
+     expect(nextRedemptionCount(2, 3)).toEqual({ ok: true, value: 3 })
+   })
+-  test("rejects at the limit", () => {
+-    expect(nextRedemptionCount(3, 3)).toEqual({ ok: false, reason: "exhausted" })
+-  })
+ })
+diff --git a/packages/domain/src/stock.ts b/packages/domain/src/stock.ts
+index 762582b..79e22ea 100644
+--- a/packages/domain/src/stock.ts
++++ b/packages/domain/src/stock.ts
+@@ -22,9 +22,8 @@ export function nextStock(stock: number, quantity: number): CounterResult<"insuf
+ }
+ 
+ /**
+- * Rule: the redemption count after one more redemption is `redemptions + 1`,
+- * unless the coupon is already at its limit (`redemptions >= usageLimit`), in
+- * which case the result is `{ ok: false, reason: "exhausted" }`.
++ * Rule: the redemption count after one more redemption is `redemptions + 1`.
++ * Whether the coupon may still be used is decided earlier, when it is priced.
+  *
+  * A redemption counts only AFTER the order is stored. This function only
+  * computes the next number; the CALLER must save it in the same transaction as
+@@ -38,7 +37,6 @@ export function nextRedemptionCount(
+   if (!Number.isInteger(redemptions) || redemptions < 0) {
+     throw new RangeError(`Redemptions must be a non-negative integer, got ${redemptions}`)
+   }
+-  return redemptions >= usageLimit
+-    ? { ok: false, reason: "exhausted" }
+-    : { ok: true, value: redemptions + 1 }
++  void usageLimit
++  return { ok: true, value: redemptions + 1 }
+ }

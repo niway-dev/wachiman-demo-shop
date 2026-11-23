@@ -1,0 +1,8 @@
+kind: clean
+baseline: baseline-v2
+title: Fold the floor helper into applyDiscount
+files:
+  - docs/features/discounts.md
+  - packages/domain/src/discount.test.ts
+  - packages/domain/src/discount.ts
+expected: none

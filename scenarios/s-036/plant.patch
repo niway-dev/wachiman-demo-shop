@@ -1,0 +1,30 @@
+diff --git a/packages/domain/src/coupon.ts b/packages/domain/src/coupon.ts
+index a855417..a94ae7c 100644
+--- a/packages/domain/src/coupon.ts
++++ b/packages/domain/src/coupon.ts
+@@ -36,20 +36,20 @@ export interface CouponCheck {
+  * Rule: a coupon is usable only when all of these hold, checked in this order
+  * and reported as the first failing reason:
+  * 1. a coupon exists (`undefined` is "not_found");
+- * 2. the order has no coupon yet (otherwise "already_applied");
+- * 3. it has not expired: expiry is EXCLUSIVE of the instant `expiresAt`, so
++ * 2. it has not expired: expiry is EXCLUSIVE of the instant `expiresAt`, so
+  *    when `now >= expiresAt` the result is "expired" and one millisecond
+  *    earlier it is still valid;
+- * 4. it is not exhausted: when `redemptions >= usageLimit` the result is
++ * 3. it is not exhausted: when `redemptions >= usageLimit` the result is
+  *    "exhausted", so the last allowed redemption is the one that makes the
+- *    count equal the limit.
++ *    count equal the limit;
++ * 4. the order has no coupon yet (otherwise "already_applied").
+  * Otherwise the result is `{ ok: true, coupon }`.
+  */
+ export function validateCoupon(coupon: Coupon | undefined, check: CouponCheck): CouponValidation {
+   if (coupon === undefined) return { ok: false, reason: "not_found" }
+-  if (check.orderHasCoupon === true) return { ok: false, reason: "already_applied" }
+   if (check.now >= coupon.expiresAt) return { ok: false, reason: "expired" }
+   if (check.redemptions >= coupon.usageLimit) return { ok: false, reason: "exhausted" }
++  if (check.orderHasCoupon === true) return { ok: false, reason: "already_applied" }
+   return { ok: true, coupon }
+ }
+ 
