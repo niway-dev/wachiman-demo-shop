@@ -1,0 +1,57 @@
+diff --git a/packages/domain/src/discount.test.ts b/packages/domain/src/discount.test.ts
+index 65b4f88..3c89c3c 100644
+--- a/packages/domain/src/discount.test.ts
++++ b/packages/domain/src/discount.test.ts
+@@ -16,9 +16,19 @@ describe("percentageDiscount", () => {
+     expect(off).toBe(200 as never)
+     expect(1999 - off).toBe(1799)
+   })
+-  test("an exact half rounds up", () => {
+-    expect(percentageDiscount(m(1995), 10)).toBe(200 as never)
+-    expect(percentageDiscount(m(1994), 10)).toBe(199 as never)
++  const rounding: ReadonlyArray<readonly [amount: number, percent: number, off: number]> = [
++    [1995, 10, 200], // exactly 199.5 rounds up
++    [1994, 10, 199], // 199.4 rounds down
++    [1996, 10, 200], // 199.6 rounds up
++    [1, 50, 1], // exactly 0.5 rounds up
++    [49, 1, 0], // 0.49 rounds down
++    [50, 1, 1], // exactly 0.5 rounds up
++    [3, 33, 1], // 0.99 rounds up
++    [0, 50, 0],
++    [10000, 100, 10000],
++  ]
++  test.each(rounding)("%i at %i%% takes %i off", (amount, percent, off) => {
++    expect(percentageDiscount(m(amount), percent)).toBe(off as never)
+   })
+   test("0% takes nothing and 100% takes everything", () => {
+     expect(percentageDiscount(m(1999), 0)).toBe(0 as never)
+diff --git a/packages/domain/src/promotion.test.ts b/packages/domain/src/promotion.test.ts
+index ca8d5de..40b81ce 100644
+--- a/packages/domain/src/promotion.test.ts
++++ b/packages/domain/src/promotion.test.ts
+@@ -10,12 +10,19 @@ import {
+ const price = money(1000)
+ 
+ describe("buyTwoGetOneDiscount", () => {
+-  test("3 units charge 2, 5 charge 4, 1 charges 1", () => {
+-    expect(buyTwoGetOneDiscount(price, 3)).toBe(1000 as never)
+-    expect(buyTwoGetOneDiscount(price, 5)).toBe(1000 as never)
+-    expect(buyTwoGetOneDiscount(price, 6)).toBe(2000 as never)
+-    expect(buyTwoGetOneDiscount(price, 1)).toBe(0 as never)
+-    expect(buyTwoGetOneDiscount(price, 2)).toBe(0 as never)
++  const cases: ReadonlyArray<readonly [quantity: number, freeUnits: number]> = [
++    [1, 0],
++    [2, 0],
++    [3, 1],
++    [4, 1],
++    [5, 1],
++    [6, 2],
++    [8, 2],
++    [9, 3],
++    [12, 4],
++  ]
++  test.each(cases)("%i units get %i free", (quantity, freeUnits) => {
++    expect(buyTwoGetOneDiscount(price, quantity)).toBe((freeUnits * 1000) as never)
+   })
+   test("rejects quantity 0 and negatives", () => {
+     expect(() => buyTwoGetOneDiscount(price, 0)).toThrow(RangeError)

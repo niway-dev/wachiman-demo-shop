@@ -1,0 +1,13 @@
+kind: defect
+baseline: baseline-v2
+title: Account for reserved units in stock checks
+files:
+  - packages/domain/src/stock.test.ts
+  - packages/domain/src/stock.ts
+expected:
+  - file: packages/domain/src/stock.ts
+    lines: [27, 30]
+    must_mention: the stored stock is reduced by the reserved units as well as the sold quantity (available - quantity), so units held in other carts are removed from inventory; the stock after a sale should be stock - quantity
+  - file: packages/domain/src/stock.test.ts
+    lines: [20, 29]
+    must_mention: the new tests cannot fail; one compares nextStock with a second call to nextStock and the other only asserts the result is ok or not ok, so neither checks a stock value

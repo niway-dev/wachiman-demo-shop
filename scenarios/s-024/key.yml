@@ -1,0 +1,7 @@
+kind: clean
+baseline: baseline-v2
+title: Table-driven cases for discount and promotion rules
+files:
+  - packages/domain/src/discount.test.ts
+  - packages/domain/src/promotion.test.ts
+expected: none

@@ -1,0 +1,9 @@
+kind: design
+baseline: baseline-v2
+title: Add tests for promotion selection
+files:
+  - packages/domain/src/promotion-selection.test.ts
+expected:
+  - file: packages/domain/src/promotion-selection.test.ts
+    lines: [16, 35]
+    must_mention: the tests replace bestLinePromotion with a mock and only assert that the mock was called or returned its canned value; they verify the mock, not the real function, so they can never fail on a change in the promotion logic
