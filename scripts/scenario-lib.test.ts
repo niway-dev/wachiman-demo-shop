@@ -1,10 +1,21 @@
 import { describe, expect, test } from "bun:test"
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 // Imported (not read with node:fs) so `bun test --changed` re-runs this file when the fixture changes.
 import sample from "./fixtures/review-result.sample.json"
 import {
+  TempWorktree,
+  abandonedHead,
+  assertReviewShape,
   buildSummary,
   failedSummary,
   gitOk,
@@ -495,4 +506,133 @@ describe("missingTagMessage", () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+})
+
+async function withRepo(
+  fn: (dir: string, g: (...args: string[]) => Promise<string>) => Promise<void>,
+) {
+  const dir = mkdtempSync(join(tmpdir(), "scenario-repo-"))
+  try {
+    const g = (...args: string[]) =>
+      gitOk(dir, ["-c", "user.name=t", "-c", "user.email=t@t", ...args])
+    await g("init", "--quiet", "-b", "main")
+    await g("commit", "--quiet", "--allow-empty", "-m", "base")
+    await g("tag", "baseline")
+    await fn(dir, g)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+describe("abandonedHead", () => {
+  test("flags a detached HEAD that no branch or tag holds, and nothing otherwise", async () => {
+    await withRepo(async (dir, g) => {
+      expect(await abandonedHead(dir)).toBeNull() // on a branch
+      await g("checkout", "--quiet", "--detach")
+      expect(await abandonedHead(dir)).toBeNull() // detached, but main holds it
+      await g("commit", "--quiet", "--allow-empty", "-m", "loose")
+      const sha = (await gitOk(dir, ["rev-parse", "--short=7", "HEAD"])).trim()
+      expect(await abandonedHead(dir)).toBe(sha)
+      await g("tag", "keep")
+      expect(await abandonedHead(dir)).toBeNull() // a tag now holds it
+      await g("commit", "--quiet", "--allow-empty", "-m", "loose again")
+      const next = (await gitOk(dir, ["rev-parse", "--short=7", "HEAD"])).trim()
+      expect(await abandonedHead(dir)).toBe(next)
+      await g("branch", "saved")
+      expect(await abandonedHead(dir)).toBeNull()
+    })
+  })
+})
+
+describe("TempWorktree report branch", () => {
+  test("default names are unique, and a taken name fails without being touched or deleted", async () => {
+    await withRepo(async (dir, g) => {
+      const a = await TempWorktree.create({ repo: dir })
+      const b = await TempWorktree.create({ repo: dir })
+      try {
+        expect(a.branchName).toMatch(/^wm-report-\d+-/)
+        expect(a.branchName).not.toBe(b.branchName)
+      } finally {
+        await a.dispose()
+        await b.dispose()
+      }
+
+      await g("commit", "--quiet", "--allow-empty", "-m", "theirs")
+      await g("branch", "wm-report-1", "HEAD")
+      const before = (await gitOk(dir, ["rev-parse", "wm-report-1"])).trim()
+      const taken = await TempWorktree.create({ repo: dir, branchName: "wm-report-1" })
+      await expect(taken.resetOnBranch("baseline")).rejects.toThrow()
+      await taken.dispose()
+      expect((await gitOk(dir, ["rev-parse", "wm-report-1"])).trim()).toBe(before)
+    })
+  })
+
+  test("moves its own branch between scenarios and deletes only that branch on dispose", async () => {
+    await withRepo(async (dir, g) => {
+      await g("branch", "other")
+      const w = await TempWorktree.create({ repo: dir, branchName: "wm-report-mine" })
+      await w.resetOnBranch("baseline")
+      await w.resetOnBranch("baseline")
+      await w.dispose()
+      const branches = (await gitOk(dir, ["branch", "--format=%(refname:short)"])).split("\n")
+      expect(branches).toContain("other")
+      expect(branches).not.toContain("wm-report-mine")
+    })
+  })
+})
+
+describe("assertReviewShape", () => {
+  test("rejects an empty object and accepts the sample", () => {
+    expect(() => assertReviewShape({})).toThrow("no findings array")
+    expect(() => assertReviewShape(sample)).not.toThrow()
+  })
+})
+
+describe("report.ts run", () => {
+  const runReport = async (fake: string, label: string, dataDir: string) => {
+    const proc = Bun.spawn(
+      [
+        "bun",
+        join(import.meta.dir, "report.ts"),
+        "run",
+        "--label",
+        label,
+        "s-001",
+        "--wachiman",
+        fake,
+      ],
+      {
+        env: { ...process.env, WACHIMAN_DATA_DIR: dataDir },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    )
+    const [stdout, code] = [await new Response(proc.stdout).text(), await proc.exited]
+    return { stdout, code }
+  }
+  const fakeReviewer = (dir: string, name: string, body: string, code = 0) => {
+    const file = join(dir, name)
+    writeFileSync(file, `#!/bin/sh\ncat <<'EOF'\n${body}\nEOF\nexit ${code}\n`)
+    chmodSync(file, 0o755)
+    return file
+  }
+
+  test("a reviewer that prints {} is a run failure and a failed rerun drops the old result", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "report-run-"))
+    try {
+      const data = join(dir, "data")
+      const out = join(data, "demo-shop", "lbl")
+      mkdirSync(out, { recursive: true })
+      const stale = join(out, "s-001.json")
+      writeFileSync(stale, JSON.stringify(sample))
+      const bad = await runReport(fakeReviewer(dir, "bad.sh", "{}"), "lbl", data)
+      expect(bad.code).toBe(1)
+      expect(bad.stdout).toContain("RUN FAILED")
+      expect(existsSync(stale)).toBe(false)
+      const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"))
+      expect(summary.scenarios[0].status).toBe("run-failed")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }, 60_000)
 })

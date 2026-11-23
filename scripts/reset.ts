@@ -3,14 +3,23 @@
  *
  *   bun scripts/reset.ts [--force] <tag>
  *
- * It refuses when the working tree is dirty or when `work/<tag>` holds commits the tag lacks (unless
- * `--force`), creates or resets the local branch `work/<tag>` at the
+ * It refuses when the working tree is dirty, when `work/<tag>` holds commits the tag lacks, or when
+ * HEAD is detached on commits no branch or tag holds (unless `--force`), creates or resets the local branch `work/<tag>` at the
  * tag, installs the dependencies the tag locks, and runs the database reset so `data/shop.db`
  * matches. It only touches the branch `work/<tag>`: never `main`, never another branch, and it
  * never pushes (so nothing can be force-pushed).
  */
 import { parseArgs } from "node:util"
-import { git, gitOk, missingTagMessage, repoRoot, run, strandedTip, tail } from "./scenario-lib.ts"
+import {
+  abandonedHead,
+  git,
+  gitOk,
+  missingTagMessage,
+  repoRoot,
+  run,
+  strandedTip,
+  tail,
+} from "./scenario-lib.ts"
 
 const help = `Usage: bun scripts/reset.ts [--force] <tag>
 
@@ -61,6 +70,15 @@ if (stranded && !values.force) {
   console.error(
     `refusing to reset: ${branch} has commits not in ${tag} (tip ${stranded}). ` +
       `Pass --force to drop them (recover later with git branch <name> ${stranded}).`,
+  )
+  process.exit(1)
+}
+const abandoned = await abandonedHead(repoRoot)
+if (abandoned && !values.force) {
+  console.error(
+    `refusing to reset: HEAD is detached at ${abandoned}, which no branch or tag contains, ` +
+      `so leaving it would abandon its commits. Run git branch <name> ${abandoned} to keep them, ` +
+      `or pass --force to drop them.`,
   )
   process.exit(1)
 }

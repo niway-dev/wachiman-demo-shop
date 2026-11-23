@@ -425,7 +425,7 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === "object" && !Array.isArray(v)
 
 /** Throws unless `json` has the fields `summarizeScenario` reads, with the right types. */
-function assertReviewShape(json: unknown): asserts json is ReviewResult {
+export function assertReviewShape(json: unknown): asserts json is ReviewResult {
   if (!isObject(json)) throw new Error("not a JSON object")
   if (!Array.isArray(json.findings)) throw new Error("no findings array")
   if (!isObject(json.execution)) throw new Error("no execution object")
@@ -687,19 +687,50 @@ export async function strandedTip(
 }
 
 /**
+ * The short sha of a detached HEAD that no local branch or tag contains (its commits would be
+ * abandoned by a checkout away from it); null when HEAD is on a branch or is reachable from a ref.
+ */
+export async function abandonedHead(cwd: string): Promise<string | null> {
+  if ((await git(cwd, ["symbolic-ref", "--quiet", "HEAD"])).code === 0) return null
+  const refs = await gitOk(cwd, [
+    "for-each-ref",
+    "--contains",
+    "HEAD",
+    "--format=%(refname)",
+    "refs/heads",
+    "refs/tags",
+  ])
+  if (refs.trim() !== "") return null
+  return (await gitOk(cwd, ["rev-parse", "--short=7", "HEAD"])).trim()
+}
+
+/** A report branch name no other run, process or leftover branch is likely to share. */
+function uniqueBranchName(): string {
+  const rand = Math.random().toString(36).slice(2, 8)
+  return `wm-report-${process.pid}-${Date.now().toString(36)}-${rand}`
+}
+
+/**
  * A temporary git worktree of this repository, detached. Created once per run and reset to a
  * baseline between scenarios; `dispose` removes it (and the branch a report run created).
  */
 export class TempWorktree {
   private installedFor: string | null = null
+  /** The branch this run created; null until `resetOnBranch` has created it. */
   private branch: string | null = null
 
-  private constructor(readonly dir: string) {}
+  private constructor(
+    readonly dir: string,
+    private readonly repo: string,
+    readonly branchName: string,
+  ) {}
 
-  static async create(): Promise<TempWorktree> {
+  /** `repo` and `branchName` exist for tests; the defaults are this repository and a unique name. */
+  static async create(options: { repo?: string; branchName?: string } = {}): Promise<TempWorktree> {
+    const repo = options.repo ?? repoRoot
     const dir = mkdtempSync(join(tmpdir(), "demo-shop-scenario-"))
-    await gitOk(repoRoot, ["worktree", "add", "--detach", dir, "HEAD"])
-    const worktree = new TempWorktree(dir)
+    await gitOk(repo, ["worktree", "add", "--detach", dir, "HEAD"])
+    const worktree = new TempWorktree(dir, repo, options.branchName ?? uniqueBranchName())
     process.once("SIGINT", () => {
       void worktree.dispose().finally(() => process.exit(130))
     })
@@ -713,11 +744,16 @@ export class TempWorktree {
     await gitOk(this.dir, ["clean", "-fdq"])
   }
 
-  /** Like `reset`, but on a local branch, which `wachiman local` needs (it refuses a detached HEAD). */
-  async resetOnBranch(baseline: string, name: string): Promise<void> {
-    await gitOk(this.dir, ["checkout", "--force", "-B", name, `refs/tags/${baseline}`, "--"])
-    await gitOk(this.dir, ["clean", "-fdq"])
+  /**
+   * Like `reset`, but on this run's own local branch, which `wachiman local` needs (it refuses a
+   * detached HEAD). The first call creates the branch without force and fails when the name is
+   * already taken; later calls move that same branch.
+   */
+  async resetOnBranch(baseline: string, name: string = this.branchName): Promise<void> {
+    const flag = this.branch === name ? "-B" : "-b"
+    await gitOk(this.dir, ["checkout", "--force", flag, name, `refs/tags/${baseline}`, "--"])
     this.branch = name
+    await gitOk(this.dir, ["clean", "-fdq"])
   }
 
   /** `bun install --frozen-lockfile`, once per baseline. */
@@ -746,9 +782,9 @@ export class TempWorktree {
 
   async dispose(): Promise<void> {
     if (!existsSync(this.dir)) return
-    await git(repoRoot, ["worktree", "remove", "--force", this.dir])
+    await git(this.repo, ["worktree", "remove", "--force", this.dir])
     rmSync(this.dir, { recursive: true, force: true })
-    await git(repoRoot, ["worktree", "prune"])
-    if (this.branch) await git(repoRoot, ["branch", "-D", this.branch])
+    await git(this.repo, ["worktree", "prune"])
+    if (this.branch) await git(this.repo, ["branch", "-D", this.branch])
   }
 }

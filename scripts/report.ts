@@ -11,12 +11,13 @@
  * root, gitignored) together with summary.json. The expected findings are read from the scenarios
  * branch on this machine only; they are never sent to Wachiman or to a pull request.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseArgs } from "node:util"
 import {
   ID_PATTERN,
   TempWorktree,
+  assertReviewShape,
   buildSummary,
   dollars,
   failedSummary,
@@ -166,8 +167,10 @@ async function runCommand(): Promise<number> {
       const { key, errors } = parseKey(files.keyText)
       if (!key) throw new Error(`scenarios/${id}/key.yml is invalid:\n  - ${errors.join("\n  - ")}`)
       console.error(`running ${id} ...`)
+      // A result saved by an earlier run must never stand in for this one.
+      if (label !== undefined) rmSync(join(labelDir(label), `${id}.json`), { force: true })
       try {
-        await worktree.resetOnBranch(key.baseline, `wm-report-${process.pid}`)
+        await worktree.resetOnBranch(key.baseline)
         await worktree.applyPatch(files.patch)
         await worktree.commit(key.title)
       } catch (error) {
@@ -189,15 +192,20 @@ async function runCommand(): Promise<number> {
         env,
       )
       let json: ReviewResult | null = null
+      let problem = ""
       try {
-        json = JSON.parse(result.stdout) as ReviewResult
-      } catch {
-        json = null
+        const parsed: unknown = JSON.parse(result.stdout)
+        assertReviewShape(parsed)
+        json = parsed
+      } catch (error) {
+        problem = (error as Error).message
       }
       if (result.code !== 0 || json === null) {
-        summaries.push(
-          failedSummary(id, key, `wachiman local exited ${result.code}: ${tail(result.stderr, 6)}`),
-        )
+        const why =
+          result.code !== 0
+            ? `wachiman local exited ${result.code}: ${tail(result.stderr, 6)}`
+            : `wachiman local printed an unusable result (${problem}): ${tail(result.stderr, 6)}`
+        summaries.push(failedSummary(id, key, why))
         continue
       }
       engineVersion = json.engine?.version ?? engineVersion
@@ -215,6 +223,10 @@ async function runCommand(): Promise<number> {
   }
   const summary = buildSummary(label, engineVersion, summaries)
   mkdirSync(labelDir(label), { recursive: true })
+  // The label may only have been known after a scenario failed: clear its stale result too.
+  for (const s of summaries) {
+    if (s.status !== "ok") rmSync(join(labelDir(label), `${s.id}.json`), { force: true })
+  }
   writeFileSync(join(labelDir(label), "summary.json"), `${JSON.stringify(summary, null, 2)}\n`)
   console.log(`label: ${label}  (${labelDir(label)})\n`)
   printSummary(summary)
