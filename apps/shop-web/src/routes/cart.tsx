@@ -36,6 +36,7 @@ function Cart() {
       const order = await api.cart.checkout({
         lines: [...cart.items],
         couponCode: couponCode.trim() || undefined,
+        totalMinor: quote.status === "ready" ? quote.quote.totalMinor : undefined,
       })
       cart.clear()
       setCouponCode("")

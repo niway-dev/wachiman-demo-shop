@@ -99,6 +99,8 @@ export const CartInputSchema = z.object({
     )
     .max(100),
   couponCode: z.string().max(40).optional(),
+  /** The total the customer saw in the last quote, in minor units. */
+  totalMinor: z.number().int().nonnegative().optional(),
 })
 
 const QuoteLineSchema = z.object({

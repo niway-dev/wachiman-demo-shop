@@ -2,6 +2,7 @@ import {
   type Cart,
   type CartLine,
   type OfferedCoupon,
+  money,
   nextRedemptionCount,
   nextStock,
   priceCart,
@@ -26,6 +27,7 @@ import { requireSession } from "./session.ts"
 export interface CartInput {
   readonly lines: readonly { readonly productId: string; readonly quantity: number }[]
   readonly couponCode?: string | undefined
+  readonly totalMinor?: number | undefined
 }
 
 /** Codes are stored upper-case; a blank code means "no coupon". */
@@ -136,13 +138,15 @@ export const checkout = (headers: Headers, input: CartInput) =>
           yield* tx.saveStock(line.productId, next.value)
         }
 
+        // The customer is charged the total they saw in the last quote.
+        const total = input.totalMinor === undefined ? priced.total : money(input.totalMinor)
         const order: NewOrder = {
           id: crypto.randomUUID(),
           userId: session.userId,
           createdAt: now,
           subtotal: priced.subtotal,
-          discount: subtract(priced.subtotal, priced.total),
-          total: priced.total,
+          discount: subtract(priced.subtotal, total),
+          total,
           couponCode: appliedCoupon?.code ?? null,
           lines: cart.lines.map((line, index) => ({
             productId: line.productId,
