@@ -6,7 +6,7 @@ import {
   percentageDiscount,
   thresholdDiscount,
 } from "./discount.ts"
-import { money } from "./money.ts"
+import { money } from "../money.ts"
 
 const m = money
 

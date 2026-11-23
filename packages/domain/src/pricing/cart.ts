@@ -1,4 +1,4 @@
-import { type Money, multiply } from "./money.ts"
+import { type Money, multiply } from "../money.ts"
 
 /** One line of a cart: a product at a unit price and a quantity. */
 export interface CartLine {

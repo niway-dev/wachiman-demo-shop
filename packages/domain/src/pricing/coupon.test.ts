@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { type Coupon, couponDiscount, validateCoupon } from "./coupon.ts"
-import { money } from "./money.ts"
+import { money } from "../money.ts"
 
 const coupon: Coupon = {
   code: "SAVE",

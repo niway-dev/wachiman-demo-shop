@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { money } from "./money.ts"
+import { money } from "../money.ts"
 import {
   type Promotion,
   bestLinePromotion,

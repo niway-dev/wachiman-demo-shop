@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { assertQuantity, lineSubtotal } from "./cart.ts"
-import { money } from "./money.ts"
+import { money } from "../money.ts"
 
 describe("cart", () => {
   test("line subtotal is unit price times quantity", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { Coupon } from "./coupon.ts"
-import { money } from "./money.ts"
+import { money } from "../money.ts"
 import { priceCart } from "./pricing.ts"
 import type { Promotion } from "./promotion.ts"
 

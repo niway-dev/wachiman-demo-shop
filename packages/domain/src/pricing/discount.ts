@@ -1,4 +1,4 @@
-import { type Money, money, subtract } from "./money.ts"
+import { type Money, money, subtract } from "../money.ts"
 
 /** Rule: a percentage is a whole number from 0 to 100 inclusive; anything else throws a RangeError. */
 export function assertPercent(percent: number): void {

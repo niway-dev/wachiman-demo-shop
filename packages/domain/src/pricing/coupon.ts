@@ -1,5 +1,5 @@
 import { fixedDiscount, percentageDiscount } from "./discount.ts"
-import type { Money } from "./money.ts"
+import type { Money } from "../money.ts"
 
 /** What a coupon takes off the cart: a percentage or a fixed amount. */
 export type CouponDiscount =
