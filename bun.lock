@@ -71,10 +71,12 @@
       "name": "@demo-shop/infra-auth",
       "version": "0.0.0",
       "dependencies": {
+        "@demo-shop/application": "workspace:*",
         "@demo-shop/domain": "workspace:*",
         "@demo-shop/infra-db": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
+        "effect": "catalog:",
       },
     },
     "packages/infra-db": {

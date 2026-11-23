@@ -7,9 +7,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@demo-shop/application": "workspace:*",
     "@demo-shop/domain": "workspace:*",
     "@demo-shop/infra-db": "workspace:*",
     "better-auth": "catalog:",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
   }
 }
