@@ -71,4 +71,4 @@ server forwards `/rpc` and `/api` to the api, so the session cookie is same-orig
 - Tests import their fixtures and never read inputs with `node:fs`, because `bun test --changed`
   follows imports and would miss a file that is only read at run time.
 - CI shards the suite by the timings in `.bun-test-timings.json`. A pull request runs only the tests
-  affected by its changes; `main` runs everything and refreshes the timings.
+  affected by its changes (everything, when it touches migrations, `package.json`, `bun.lock` or `.env.example`); `main` runs everything and refreshes the timings.

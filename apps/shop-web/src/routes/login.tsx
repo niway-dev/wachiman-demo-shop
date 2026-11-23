@@ -14,14 +14,20 @@ function Login() {
     const form = new FormData(event.currentTarget)
     setPending(true)
     setError(null)
-    const result = await authClient.signIn.email({
-      email: String(form.get("email")),
-      password: String(form.get("password")),
-    })
-    setPending(false)
-    if (result.error) {
-      setError(result.error.message ?? "Could not log in")
+    try {
+      const result = await authClient.signIn.email({
+        email: String(form.get("email")),
+        password: String(form.get("password")),
+      })
+      if (result.error) {
+        setError(result.error.message ?? "Could not log in")
+        return
+      }
+    } catch {
+      setError("Could not reach the server")
       return
+    } finally {
+      setPending(false)
     }
     await navigate({ to: "/me" })
   }

@@ -12,7 +12,19 @@ export const Route = createRootRoute({
     links: [{ rel: "stylesheet", href: appCss }],
   }),
   component: RootComponent,
+  notFoundComponent: NotFound,
 })
+
+function NotFound() {
+  return (
+    <>
+      <h1>Page not found</h1>
+      <p>
+        <Link to="/">Back to the shop</Link>
+      </p>
+    </>
+  )
+}
 
 function RootComponent() {
   return (

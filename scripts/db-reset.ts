@@ -7,6 +7,7 @@ import {
 } from "@demo-shop/infra-db"
 import { mkdirSync, rmSync } from "node:fs"
 import { dirname } from "node:path"
+import { assertResettable } from "./db-reset-guard.ts"
 import { ensureEnv } from "./ensure-env.ts"
 
 /**
@@ -19,6 +20,7 @@ const started = performance.now()
 if (await ensureEnv()) console.log("created local settings file with a generated secret")
 
 const path = resolveDatabasePath(process.env.DATABASE_PATH)
+assertResettable(path, process.env.DB_RESET_ALLOW_OUTSIDE_DATA === "1")
 mkdirSync(dirname(path), { recursive: true })
 for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true })
 

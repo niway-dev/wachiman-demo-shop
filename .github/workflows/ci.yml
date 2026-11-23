@@ -94,13 +94,29 @@ jobs:
           fetch-depth: 0
       - run: npm install -g bun@${BUN_VERSION}
       - run: bun install --frozen-lockfile
+      # --changed follows imports only. Migrations, lockfile and env example are read at run
+      # time or by tooling, so a pull request touching them runs the whole suite.
+      - name: Decide the test scope
+        id: scope
+        run: |
+          full=false
+          if [ "${{ github.event_name }}" != "pull_request" ]; then full=true
+          elif git diff --name-only origin/main...HEAD | grep -qE '^(packages/infra-db/drizzle/|package\.json$|bun\.lock$|\.env\.example$)'; then full=true
+          fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
       - name: Test (changed files on a pull request)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.scope.outputs.full != 'true'
         run: >
           bun test --parallel
           --shard=${{ matrix.shard }}/${{ needs.plan.outputs.total }}
           --timings=.bun-test-timings.json
           --changed=origin/main
+      - name: Test (full suite on a pull request that touches run-time inputs)
+        if: github.event_name == 'pull_request' && steps.scope.outputs.full == 'true'
+        run: >
+          bun test --parallel
+          --shard=${{ matrix.shard }}/${{ needs.plan.outputs.total }}
+          --timings=.bun-test-timings.json
       - name: Test (full suite on main, refreshing the timings)
         if: github.event_name != 'pull_request'
         run: >
