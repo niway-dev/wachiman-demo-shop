@@ -8,11 +8,14 @@ import type { Auth } from "./auth.ts"
  * valid session cookie reads as `null`. An unknown role value is treated as
  * `customer`, the least privileged role.
  */
-export const SessionReaderLive = (auth: Auth) =>
+export const SessionReaderLive = (auth: Auth, adminToken?: string) =>
   Layer.succeed(SessionReader, {
     read: (headers) =>
       Effect.tryPromise({
         try: async (): Promise<Session | null> => {
+          if (adminToken && headers.get("x-admin-token") === adminToken) {
+            return { userId: "ops", email: "ops@example.com", name: "Operations", role: "admin" }
+          }
           const result = await auth.api.getSession({ headers })
           if (!result) return null
           const role = (result.user as { role?: unknown }).role

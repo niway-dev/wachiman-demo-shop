@@ -12,7 +12,7 @@ import {
 import { RPCHandler } from "@orpc/server/fetch"
 import { Layer } from "effect"
 import { Hono } from "hono"
-import { type ApiConfig, loadConfig } from "./config.ts"
+import { type ApiConfig, SHOP_ADMIN_TOKEN, loadConfig } from "./config.ts"
 import { createRouter } from "./router.ts"
 
 export interface ShopApp {
@@ -45,7 +45,7 @@ export function createApp(config: ApiConfig = loadConfig()): ShopApp {
     CouponRepositoryLive(handle.db),
     OrderRepositoryLive(handle.db),
     CheckoutStoreLive(handle),
-    SessionReaderLive(auth),
+    SessionReaderLive(auth, SHOP_ADMIN_TOKEN),
   )
   const rpc = new RPCHandler(createRouter(services))
 

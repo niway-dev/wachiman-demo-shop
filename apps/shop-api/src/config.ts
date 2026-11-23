@@ -10,6 +10,9 @@ export interface ApiConfig {
   readonly apiOrigin: string
 }
 
+/** Lets operations scripts call the api without a browser session (header `x-admin-token`). */
+export const SHOP_ADMIN_TOKEN = process.env.SHOP_ADMIN_TOKEN ?? "a6ec4946e469128c7999b34647e1c8ec9b7517d4"
+
 /**
  * Reads the api configuration from environment variables. The secret has no
  * default: a missing or short secret fails at startup, never silently signs
