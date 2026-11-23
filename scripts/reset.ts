@@ -10,7 +10,7 @@
  * never pushes (so nothing can be force-pushed).
  */
 import { parseArgs } from "node:util"
-import { git, gitOk, repoRoot, run, strandedTip, tail } from "./scenario-lib.ts"
+import { git, gitOk, missingTagMessage, repoRoot, run, strandedTip, tail } from "./scenario-lib.ts"
 
 const help = `Usage: bun scripts/reset.ts [--force] <tag>
 
@@ -49,11 +49,9 @@ if (dirty !== "") {
   process.exit(1)
 }
 
-if (
-  (await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`])).code !==
-  0
-) {
-  console.error(`no tag "${tag}" in this repository (try git fetch --tags)`)
+const missing = await missingTagMessage(repoRoot, tag)
+if (missing) {
+  console.error(missing)
   process.exit(1)
 }
 
@@ -68,7 +66,7 @@ if (stranded && !values.force) {
 }
 const existed =
   (await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`])).code === 0
-await gitOk(repoRoot, ["checkout", "--quiet", "-B", branch, `refs/tags/${tag}`])
+await gitOk(repoRoot, ["checkout", "--quiet", "-B", branch, `refs/tags/${tag}`, "--"])
 const sha = (await gitOk(repoRoot, ["rev-parse", "--short", "HEAD"])).trim()
 console.log(`${existed ? "reset" : "created"} branch ${branch} at ${tag} (${sha})`)
 

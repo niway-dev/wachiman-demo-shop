@@ -21,6 +21,7 @@ import {
   dollars,
   failedSummary,
   listScenarioIds,
+  missingTagMessage,
   parseKey,
   readScenario,
   renderTable,
@@ -145,6 +146,15 @@ async function runCommand(): Promise<number> {
     const { errors } = parseKey((await readScenario(ref, id)).keyText)
     if (errors.length > 0)
       throw new Error(`scenarios/${id}/key.yml is invalid:\n  - ${errors.join("\n  - ")}`)
+  }
+
+  const checked = new Set<string>()
+  for (const id of ids) {
+    const baseline = parseKey((await readScenario(ref, id)).keyText).key?.baseline
+    if (!baseline || checked.has(baseline)) continue
+    checked.add(baseline)
+    const missing = await missingTagMessage(repoRoot, baseline)
+    if (missing) throw new Error(missing)
   }
 
   const worktree = await TempWorktree.create()

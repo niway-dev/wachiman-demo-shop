@@ -9,6 +9,7 @@ import {
   failedSummary,
   gitOk,
   matchFindings,
+  missingTagMessage,
   neutralTitleProblem,
   parseKey,
   renderTable,
@@ -474,5 +475,24 @@ describe("rowsFromSavedJson", () => {
       writeFileSync(join(dir, "summary.json"), JSON.stringify({ scenarios: [] }))
       await expect(rowsFromSavedJson(dir, loadKey)).rejects.toThrow("no scenario JSON")
     })
+  })
+})
+
+describe("missingTagMessage", () => {
+  test("names the tag to fetch when it is missing, and is null when it exists", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "missing-tag-"))
+    try {
+      const g = (...args: string[]) =>
+        gitOk(dir, ["-c", "user.name=t", "-c", "user.email=t@t", ...args])
+      await g("init", "--quiet", "-b", "main")
+      await g("commit", "--quiet", "--allow-empty", "-m", "base")
+      expect(await missingTagMessage(dir, "baseline-v1")).toBe(
+        "tag baseline-v1 not found locally; run: git fetch origin tag baseline-v1",
+      )
+      await g("tag", "baseline-v1")
+      expect(await missingTagMessage(dir, "baseline-v1")).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

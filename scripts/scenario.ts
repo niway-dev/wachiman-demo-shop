@@ -18,6 +18,7 @@ import {
   git,
   gitOk,
   listScenarioIds,
+  missingTagMessage,
   parseKey,
   patchFiles,
   readScenario,
@@ -103,12 +104,8 @@ async function apply(ref: string, id: string, dryRun: boolean): Promise<void> {
   if ((await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/heads/${id}`])).code === 0) {
     throw new Error(`the local branch ${id} already exists; delete it first (git branch -D ${id})`)
   }
-  if (
-    (await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/tags/${key.baseline}`]))
-      .code !== 0
-  ) {
-    throw new Error(`no tag ${key.baseline} in this repository`)
-  }
+  const missing = await missingTagMessage(repoRoot, key.baseline)
+  if (missing) throw new Error(missing)
 
   const worktree = await TempWorktree.create()
   try {

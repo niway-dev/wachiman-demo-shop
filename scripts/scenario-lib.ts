@@ -582,6 +582,12 @@ export async function gitOk(cwd: string, args: string[], stdin?: string): Promis
   return result.stdout
 }
 
+/** The message to stop with when the local tag is missing, or null when it resolves to a commit. */
+export async function missingTagMessage(cwd: string, tag: string): Promise<string | null> {
+  const found = await git(cwd, ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`])
+  return found.code === 0 ? null : `tag ${tag} not found locally; run: git fetch origin tag ${tag}`
+}
+
 /** Runs a command and returns its exit code and combined output (the tail is what matters). */
 export async function run(
   cwd: string,
@@ -703,13 +709,13 @@ export class TempWorktree {
   /** Resets the tree to the tag: discards edits and untracked files, keeps node_modules. */
   async reset(baseline: string): Promise<void> {
     const ref = `refs/tags/${baseline}`
-    await gitOk(this.dir, ["checkout", "--force", "--detach", ref])
+    await gitOk(this.dir, ["checkout", "--force", "--detach", ref, "--"])
     await gitOk(this.dir, ["clean", "-fdq"])
   }
 
   /** Like `reset`, but on a local branch, which `wachiman local` needs (it refuses a detached HEAD). */
   async resetOnBranch(baseline: string, name: string): Promise<void> {
-    await gitOk(this.dir, ["checkout", "--force", "-B", name, `refs/tags/${baseline}`])
+    await gitOk(this.dir, ["checkout", "--force", "-B", name, `refs/tags/${baseline}`, "--"])
     await gitOk(this.dir, ["clean", "-fdq"])
     this.branch = name
   }

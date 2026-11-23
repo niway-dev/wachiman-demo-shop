@@ -17,11 +17,13 @@ import {
   TempWorktree,
   hasOracle,
   listScenarioIds,
+  missingTagMessage,
   oraclePath,
   parseKey,
   patchFiles,
   readScenario,
   renderTable,
+  repoRoot,
   resolveScenarioRef,
   run,
   tail,
@@ -154,6 +156,22 @@ try {
   if (ids.length === 0) {
     console.error(`no scenarios on ${ref}`)
     process.exit(1)
+  }
+  const checked = new Set<string>()
+  for (const id of ids) {
+    let baseline: string | undefined
+    try {
+      baseline = parseKey((await readScenario(ref, id)).keyText).key?.baseline
+    } catch {
+      continue // validateOne reports an unreadable scenario
+    }
+    if (!baseline || checked.has(baseline)) continue
+    checked.add(baseline)
+    const missing = await missingTagMessage(repoRoot, baseline)
+    if (missing) {
+      console.error(missing)
+      process.exit(1)
+    }
   }
   worktree = await TempWorktree.create()
   const rows: Row[] = []
