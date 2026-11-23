@@ -21,5 +21,7 @@ export async function ensureEnv(): Promise<boolean> {
 
 if (import.meta.main) {
   const created = await ensureEnv()
-  console.log(created ? "created local settings file with a generated secret" : "settings file exists")
+  console.log(
+    created ? "created local settings file with a generated secret" : "settings file exists",
+  )
 }
