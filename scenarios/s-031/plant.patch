@@ -1,0 +1,13 @@
+diff --git a/packages/infra-db/drizzle/0001_carts.sql b/packages/infra-db/drizzle/0001_carts.sql
+index 01065e3..a699bf2 100644
+--- a/packages/infra-db/drizzle/0001_carts.sql
++++ b/packages/infra-db/drizzle/0001_carts.sql
+@@ -42,7 +42,7 @@ CREATE TABLE `promotions` (
+ 	`name` text NOT NULL,
+ 	`kind` text NOT NULL,
+ 	`percent` integer,
+-	`active` integer DEFAULT true NOT NULL,
++	`active` integer DEFAULT false NOT NULL,
+ 	`redemptions` integer DEFAULT 0 NOT NULL,
+ 	`created_at` integer NOT NULL
+ );

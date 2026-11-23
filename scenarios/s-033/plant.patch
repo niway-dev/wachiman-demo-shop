@@ -1,0 +1,54 @@
+diff --git a/docs/features/discounts.md b/docs/features/discounts.md
+index 398e3e6..c8f8fec 100644
+--- a/docs/features/discounts.md
++++ b/docs/features/discounts.md
+@@ -24,4 +24,4 @@ coupon** (see [stacking](stacking.md)).
+ 
+ ## Floor
+ 
+-`floorAtZero` and `applyDiscount`: a total never goes below 0.
++`applyDiscount`: a total never goes below 0.
+diff --git a/packages/domain/src/discount.test.ts b/packages/domain/src/discount.test.ts
+index 65b4f88..8cd2f99 100644
+--- a/packages/domain/src/discount.test.ts
++++ b/packages/domain/src/discount.test.ts
+@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test"
+ import {
+   applyDiscount,
+   fixedDiscount,
+-  floorAtZero,
+   percentageDiscount,
+   thresholdDiscount,
+ } from "./discount.ts"
+@@ -52,8 +51,6 @@ describe("thresholdDiscount", () => {
+ 
+ describe("floor", () => {
+   test("a total never goes below 0", () => {
+-    expect(floorAtZero(m(-5))).toBe(0 as never)
+-    expect(floorAtZero(m(5))).toBe(5 as never)
+     expect(applyDiscount(m(100), m(250))).toBe(0 as never)
+   })
+ })
+diff --git a/packages/domain/src/discount.ts b/packages/domain/src/discount.ts
+index c59739e..ae87434 100644
+--- a/packages/domain/src/discount.ts
++++ b/packages/domain/src/discount.ts
+@@ -57,14 +57,10 @@ export function thresholdDiscount(subtotal: Money): Money {
+ }
+ 
+ /**
+- * Rule: a total never goes below 0. Returns `amount` when it is positive and
+- * 0 otherwise.
++ * Rule: a total never goes below 0. The amount left after taking `discount`
++ * off `amount` is floored at 0.
+  */
+-export function floorAtZero(amount: Money): Money {
+-  return amount < 0 ? money(0) : amount
+-}
+-
+-/** The amount left after taking `discount` off `amount`, floored at 0. */
+ export function applyDiscount(amount: Money, discount: Money): Money {
+-  return floorAtZero(subtract(amount, discount))
++  const left = subtract(amount, discount)
++  return left < 0 ? money(0) : left
+ }

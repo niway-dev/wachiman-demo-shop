@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v2
+title: Reorder coupon checks
+files:
+  - packages/domain/src/coupon.ts
+expected:
+  - file: packages/domain/src/coupon.ts
+    lines: [50, 52]
+    must_mention: the check order (and its doc comment) now reports already_applied last, which contradicts docs/features/coupons.md that lists already_applied second, before expired and exhausted

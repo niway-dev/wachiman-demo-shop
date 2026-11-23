@@ -1,0 +1,7 @@
+kind: routing
+baseline: baseline-v2
+title: Polish wording in checkout comments
+files:
+  - packages/application/src/checkout.ts
+expected: none
+expected_risk: critical

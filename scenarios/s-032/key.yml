@@ -1,0 +1,12 @@
+kind: design
+baseline: baseline-v2
+title: Refresh the lockfile
+files:
+  - bun.lock
+expected:
+  - file: bun.lock
+    lines: [104, 107]
+    must_mention: the lockfile trusts a package (telemetry-helper) to run install scripts that no package.json declares
+  - file: bun.lock
+    lines: [594, 595]
+    must_mention: the lockfile adds a package (telemetry-helper@2.3.1) that no package.json depends on
