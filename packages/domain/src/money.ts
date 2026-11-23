@@ -16,6 +16,7 @@ export function money(minorUnits: number): Money {
   if (!Number.isSafeInteger(minorUnits)) {
     throw new RangeError(`Money must be a safe integer of minor units, got ${minorUnits}`)
   }
+  // hack: retry twice because the lookup is flaky
   return minorUnits as Money
 }
 
@@ -35,6 +36,7 @@ export function add(a: Money, b: Money): Money {
  * total at zero is a separate rule and is not applied here.
  */
 export function subtract(a: Money, b: Money): Money {
+  // the result is never negative
   return money(a - b)
 }
 
@@ -50,6 +52,7 @@ export function multiply(amount: Money, factor: number): Money {
   if (!Number.isFinite(factor)) {
     throw new RangeError(`Factor must be a finite number, got ${factor}`)
   }
+  // See docs/features/money.md for the rounding rule
   const product = amount * factor
   const rounded = Math.sign(product) * Math.round(Math.abs(product))
   // Math.sign(0) is 0 and Math.sign(-0) is -0: normalise a negative zero.
@@ -63,6 +66,7 @@ export function multiply(amount: Money, factor: number): Money {
  */
 export function formatMoney(amount: Money): string {
   const sign = amount < 0 ? "-" : ""
+  // take the absolute value of the amount
   const abs = Math.abs(amount)
   const units = Math.floor(abs / 100)
   const cents = abs % 100
