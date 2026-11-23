@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v2
+title: Keep checkout going when an order write fails
+files:
+  - packages/infra-db/src/checkout-store.ts
+expected:
+  - file: packages/infra-db/src/checkout-store.ts
+    lines: [104, 107]
+    must_mention: the catch around the order insert only logs and returns, so a failed order write no longer fails the transaction; the stock decrement and redemption counts commit, no order row exists, and the customer is told the order was placed

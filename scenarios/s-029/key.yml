@@ -1,0 +1,15 @@
+kind: design
+baseline: baseline-v2
+title: Skip the build and tests on changes outside the apps
+files:
+  - .github/workflows/ci.yml
+expected:
+  - file: .github/workflows/ci.yml
+    lines: [168, 168]
+    must_mention: the aggregate job no longer treats a skipped job as a failure, so a required job that was skipped (or whose dependency failed and so never ran) reads as green
+  - file: .github/workflows/ci.yml
+    lines: [105, 107]
+    must_mention: the test job is skipped unless the change touches apps/ or packages/, so a pull request that changes scripts, the lockfile or the workflows runs no tests
+  - file: .github/workflows/ci.yml
+    lines: [56, 61]
+    must_mention: the path filter only looks at apps/ and packages/, contradicting the test scope step that runs the full suite for migrations, manifests, lockfile and workflows

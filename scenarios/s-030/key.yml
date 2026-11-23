@@ -1,0 +1,9 @@
+kind: design
+baseline: baseline-v2
+title: Add context to the session read error log
+files:
+  - packages/infra-auth/src/session-reader.ts
+expected:
+  - file: packages/infra-auth/src/session-reader.ts
+    lines: [27, 31]
+    must_mention: the error log line writes the raw cookie header (the session token) and the authorization header, so credentials end up in the logs

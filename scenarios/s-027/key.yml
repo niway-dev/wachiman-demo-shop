@@ -1,0 +1,9 @@
+kind: defect
+baseline: baseline-v2
+title: Check stock before taking the write lock
+files:
+  - packages/application/src/checkout.ts
+expected:
+  - file: packages/application/src/checkout.ts
+    lines: [112, 138]
+    must_mention: stock is read and checked outside the transaction and the stale value is written inside it after an await (the session read), so two concurrent checkouts for the last unit both pass the check and oversell
