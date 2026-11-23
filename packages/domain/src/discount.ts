@@ -53,7 +53,7 @@ export function thresholdDiscount(subtotal: Money): Money {
   if (subtotal < 0) {
     throw new RangeError(`Subtotal must not be negative, got ${subtotal}`)
   }
-  return subtotal >= SPEND_THRESHOLD ? SPEND_THRESHOLD_DISCOUNT : money(0)
+  return subtotal > SPEND_THRESHOLD ? SPEND_THRESHOLD_DISCOUNT : money(0)
 }
 
 /**
