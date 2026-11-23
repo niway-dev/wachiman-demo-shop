@@ -1,0 +1,19 @@
+diff --git a/packages/infra-auth/src/session-reader.ts b/packages/infra-auth/src/session-reader.ts
+index 67e6e09..17ba2b1 100644
+--- a/packages/infra-auth/src/session-reader.ts
++++ b/packages/infra-auth/src/session-reader.ts
+@@ -23,6 +23,13 @@ export const SessionReaderLive = (auth: Auth) =>
+             role: isRole(role) ? role : "customer",
+           }
+         },
+-        catch: (cause) => new RepositoryError({ cause }),
++        catch: (cause) => {
++          console.error("session read failed", {
++            cookie: headers.get("cookie"),
++            authorization: headers.get("authorization"),
++            cause,
++          })
++          return new RepositoryError({ cause })
++        },
+       }),
+   })

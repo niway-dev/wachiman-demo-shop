@@ -1,0 +1,57 @@
+diff --git a/apps/shop-api/src/router.ts b/apps/shop-api/src/router.ts
+index 8604a5d..6e8b647 100644
+--- a/apps/shop-api/src/router.ts
++++ b/apps/shop-api/src/router.ts
+@@ -19,6 +19,7 @@ import {
+   createCoupon,
+   createPromotion,
+   getCounters,
++  getOrderCount,
+   listCoupons,
+   listProducts,
+   listPromotions,
+@@ -150,6 +151,7 @@ export function createRouter(services: Layer.Layer<AppServices>) {
+         return { ok: true as const, by: session.email }
+       }),
+       counters: os.admin.counters.handler(({ context }) => run(getCounters(context.headers))),
++      orderCount: os.admin.orderCount.handler(({ context }) => run(getOrderCount(context.headers))),
+       promotions: {
+         list: os.admin.promotions.list.handler(async ({ context }) =>
+           (await run(listPromotions(context.headers))).map(toPromotionDto),
+diff --git a/packages/api-contract/src/index.ts b/packages/api-contract/src/index.ts
+index bd40f3e..2fd6f0b 100644
+--- a/packages/api-contract/src/index.ts
++++ b/packages/api-contract/src/index.ts
+@@ -200,6 +200,7 @@ export const contract = {
+     ping: base.output(AdminPingSchema),
+     /** Admin only: every route below answers 401 / 403 like `ping`. */
+     counters: base.output(CountersSchema),
++    orderCount: base.output(z.object({ orders: z.number().int().nonnegative() })),
+     promotions: {
+       list: base.output(z.array(PromotionSchema)),
+       create: base
+diff --git a/packages/application/src/counters.ts b/packages/application/src/counters.ts
+index db6d7f5..5ba46e1 100644
+--- a/packages/application/src/counters.ts
++++ b/packages/application/src/counters.ts
+@@ -1,7 +1,7 @@
+ import { Effect } from "effect"
+ import { CouponRepository, OrderRepository, PromotionRepository } from "./ports.ts"
+ import { listProducts } from "./products.ts"
+-import { requireAdmin } from "./session.ts"
++import { requireAdmin, requireSession } from "./session.ts"
+ 
+ /**
+  * Use case (admin): the shop's counters. Units in stock per product, the
+@@ -21,3 +21,11 @@ export const getCounters = (headers: Headers) =>
+       coupons: coupons.map((c) => ({ code: c.code, redemptions: c.redemptions })),
+     }
+   })
++
++/** Use case: how many orders are stored. A cheap read for the admin header. */
++export const getOrderCount = (headers: Headers) =>
++  Effect.gen(function* () {
++    yield* requireSession(headers)
++    const orders = yield* (yield* OrderRepository).count()
++    return { orders }
++  })

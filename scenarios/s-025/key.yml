@@ -1,0 +1,16 @@
+kind: defect
+baseline: baseline-v2
+title: Rename the coupon field in the cart input
+files:
+  - apps/shop-api/src/checkout.test.ts
+  - apps/shop-api/src/router.ts
+  - apps/shop-web/src/lib/use-quote.ts
+  - apps/shop-web/src/routes/cart.tsx
+  - packages/api-contract/src/index.ts
+expected:
+  - file: apps/shop-api/src/router.ts
+    lines: [136, 140]
+    must_mention: the cart input field was renamed to "coupon" in the contract but the handlers cast the input to the use case's CartInput, which still reads "couponCode"; the coupon is undefined at run time and silently ignored on quote and checkout
+  - file: packages/api-contract/src/index.ts
+    lines: [101, 101]
+    must_mention: the contract field rename is not carried through to the api use case (the use case input type still names couponCode)

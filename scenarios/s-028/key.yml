@@ -1,0 +1,14 @@
+kind: defect
+baseline: baseline-v2
+title: Add an order count to the admin header
+files:
+  - apps/shop-api/src/router.ts
+  - packages/api-contract/src/index.ts
+  - packages/application/src/counters.ts
+expected:
+  - file: packages/application/src/counters.ts
+    lines: [25, 31]
+    must_mention: the new use case only requires a session, not the admin role that every other admin use case enforces with requireAdmin, so a signed-in customer can call it
+  - file: apps/shop-api/src/router.ts
+    lines: [154, 154]
+    must_mention: a route under admin is served to any signed-in user, unlike its siblings

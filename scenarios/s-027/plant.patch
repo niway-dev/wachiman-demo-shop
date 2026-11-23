@@ -1,0 +1,63 @@
+diff --git a/packages/application/src/checkout.ts b/packages/application/src/checkout.ts
+index fa310f9..5a530f3 100644
+--- a/packages/application/src/checkout.ts
++++ b/packages/application/src/checkout.ts
+@@ -104,37 +104,38 @@ export const quoteCart = (input: CartInput) =>
+  */
+ export const checkout = (headers: Headers, input: CartInput) =>
+   Effect.gen(function* () {
+-    const session = yield* requireSession(headers)
+     const lines = yield* mergeLines(input.lines)
+     if (lines.length === 0) return yield* new EmptyCart()
+     const store = yield* CheckoutStore
+     const now = yield* Clock.currentTimeMillis
+ 
++    // Stock is checked before the write lock is taken, so an unavailable item fails fast.
++    // The domain function decides; we only keep what it returns.
++    const early = yield* priceOrder(store.reader, lines, input.couponCode, now)
++    const stockWrites: { productId: string; stock: number }[] = []
++    for (const line of early.cart.lines) {
++      const product = early.products.get(line.productId)!
++      const next = nextStock(product.stock, line.quantity)
++      if (!next.ok) {
++        return yield* new InsufficientStock({
++          productId: line.productId,
++          available: product.stock,
++          requested: line.quantity,
++        })
++      }
++      stockWrites.push({ productId: line.productId, stock: next.value })
++    }
++
++    const session = yield* requireSession(headers)
++
+     return yield* store.transaction((tx) =>
+       Effect.gen(function* () {
+-        const { cart, priced, appliedCoupon, products } = yield* priceOrder(
+-          tx,
+-          lines,
+-          input.couponCode,
+-          now,
+-        )
++        const { cart, priced, appliedCoupon } = yield* priceOrder(tx, lines, input.couponCode, now)
+         if (priced.couponRejection !== null) {
+           return yield* new CouponRejected({ reason: priced.couponRejection })
+         }
+ 
+-        // Stock: the domain function decides; we only store what it returns.
+-        for (const line of cart.lines) {
+-          const product = products.get(line.productId)!
+-          const next = nextStock(product.stock, line.quantity)
+-          if (!next.ok) {
+-            return yield* new InsufficientStock({
+-              productId: line.productId,
+-              available: product.stock,
+-              requested: line.quantity,
+-            })
+-          }
+-          yield* tx.saveStock(line.productId, next.value)
+-        }
++        for (const write of stockWrites) yield* tx.saveStock(write.productId, write.stock)
+ 
+         const order: NewOrder = {
+           id: crypto.randomUUID(),

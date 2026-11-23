@@ -1,0 +1,62 @@
+diff --git a/packages/infra-db/src/checkout-store.ts b/packages/infra-db/src/checkout-store.ts
+index 53d1438..da5eaa9 100644
+--- a/packages/infra-db/src/checkout-store.ts
++++ b/packages/infra-db/src/checkout-store.ts
+@@ -77,29 +77,34 @@ export const CheckoutStoreLive = ({ sqlite, db }: DatabaseHandle) => {
+       }),
+     saveOrder: (order) =>
+       attempt(() => {
+-        db.insert(orders)
+-          .values({
+-            id: order.id,
+-            userId: order.userId,
+-            subtotalMinor: order.subtotal,
+-            discountMinor: order.discount,
+-            totalMinor: order.total,
+-            couponCode: order.couponCode,
+-            createdAt: new Date(order.createdAt),
+-          })
+-          .run()
+-        db.insert(orderLines)
+-          .values(
+-            order.lines.map((line) => ({
+-              orderId: order.id,
+-              productId: line.productId,
+-              quantity: line.quantity,
+-              unitPriceMinor: line.unitPrice,
+-              discountMinor: line.discount,
+-              promotionId: line.promotionId,
+-            })),
+-          )
+-          .run()
++        try {
++          db.insert(orders)
++            .values({
++              id: order.id,
++              userId: order.userId,
++              subtotalMinor: order.subtotal,
++              discountMinor: order.discount,
++              totalMinor: order.total,
++              couponCode: order.couponCode,
++              createdAt: new Date(order.createdAt),
++            })
++            .run()
++          db.insert(orderLines)
++            .values(
++              order.lines.map((line) => ({
++                orderId: order.id,
++                productId: line.productId,
++                quantity: line.quantity,
++                unitPriceMinor: line.unitPrice,
++                discountMinor: line.discount,
++                promotionId: line.promotionId,
++              })),
++            )
++            .run()
++        } catch (error) {
++          // Keep the checkout flowing: the customer still sees the order they placed.
++          console.warn("order write failed", error)
++        }
+       }),
+     saveCouponRedemptions: (code, redemptions) =>
+       attempt(() => {
