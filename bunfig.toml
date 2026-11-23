@@ -1,0 +1,9 @@
+[lint]
+typeAware = false
+
+[lint.rules]
+"eqeqeq" = ["error", "smart"]
+
+[fmt]
+printWidth = 100
+semi = false

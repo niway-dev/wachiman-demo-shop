@@ -1,0 +1,15 @@
+{
+  "name": "@demo-shop/infra-auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@demo-shop/domain": "workspace:*",
+    "@demo-shop/infra-db": "workspace:*",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:"
+  }
+}
