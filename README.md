@@ -77,6 +77,10 @@ CI, on the owner's Claude subscription. It reads each diff and comments on bugs,
 attention to the paths in [`.wachiman.yml`](.wachiman.yml): authentication and checkout
 (critical) and pricing (high).
 
+The workflow is pinned to Wachiman v1.20.0, and `.wachiman.yml` turns on the comment rule
+(`review.comments_point_to_docs`): the review also reports each added code comment that is not a pointer
+to a document or a tool directive.
+
 The workflow in `.github/workflows/review.yml` reviews every pull request opened from a branch of
 this repository. A pull request from a fork gets no review and no secret, because GitHub does not
 give secrets to fork pull requests.

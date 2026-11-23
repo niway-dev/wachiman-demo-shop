@@ -1,3 +1,7 @@
+# Comment rule: the review also reports each added code comment that is not a pointer to a document
+# or a tool directive.
+review:
+  comments_point_to_docs: true
 # Path rules for Wachiman. Everything not listed keeps the default risk scoring.
 paths:
   # Authentication
