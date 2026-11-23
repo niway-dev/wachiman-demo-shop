@@ -1,9 +1,10 @@
 /**
  * Puts this checkout on a baseline tag so the next change starts from a known state.
  *
- *   bun scripts/reset.ts <tag>
+ *   bun scripts/reset.ts [--force] <tag>
  *
- * It refuses when the working tree is dirty, creates or resets the local branch `work/<tag>` at the
+ * It refuses when the working tree is dirty or when `work/<tag>` holds commits the tag lacks (unless
+ * `--force`), creates or resets the local branch `work/<tag>` at the
  * tag, installs the dependencies the tag locks, and runs the database reset so `data/shop.db`
  * matches. It only touches the branch `work/<tag>`: never `main`, never another branch, and it
  * never pushes (so nothing can be force-pushed).

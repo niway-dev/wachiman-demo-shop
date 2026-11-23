@@ -63,15 +63,15 @@ runs from `scenarios-oracle/` at the repository root, so import code by relative
 
 Every script has `--help`. Run them from `main` (or any branch with the scripts).
 
-| Command                                           | What it does                                                                                             |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `bun scripts/scenario.ts list`                    | Id, kind and title of every scenario.                                                                    |
-| `bun scripts/scenario.ts show <id>`               | The key and the changed files. Owner only: it prints the answer.                                         |
-| `bun scripts/scenario.ts apply <id> [--dry-run]`  | Builds branch `<id>` from the baseline, commits with the neutral title, pushes, opens a PR against main. |
-| `bun scripts/validate.ts [ids...]`                | Checks keys, that patches apply, and that oracles pass on the baseline and fail with the patch.          |
-| `bun scripts/report.ts run --label <name> [ids]`  | Runs `wachiman local` on each scenario and saves the JSON and a summary.                                 |
-| `bun scripts/report.ts compare <labelA> <labelB>` | Two runs side by side: time, cost, matched or not, totals.                                               |
-| `bun scripts/reset.ts <tag>`                      | Puts this checkout on branch `work/<tag>` at the tag and resets the database.                            |
+| Command                                           | What it does                                                                                                                                   |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun scripts/scenario.ts list`                    | Id, kind and title of every scenario.                                                                                                          |
+| `bun scripts/scenario.ts show <id>`               | The key and the changed files. Owner only: it prints the answer.                                                                               |
+| `bun scripts/scenario.ts apply <id> [--dry-run]`  | Builds branch `<id>` from the baseline, commits with the neutral title, pushes, opens a PR against main.                                       |
+| `bun scripts/validate.ts [ids...]`                | Checks keys, that patches apply, and that oracles pass on the baseline and fail with the patch.                                                |
+| `bun scripts/report.ts run --label <name> [ids]`  | Runs `wachiman local` on each scenario and saves the JSON and a summary.                                                                       |
+| `bun scripts/report.ts compare <labelA> <labelB>` | Two runs side by side: time, cost, matched or not, totals.                                                                                     |
+| `bun scripts/reset.ts [--force] <tag>`            | Puts this checkout on branch `work/<tag>` at the tag and resets the database. Refuses to drop commits already on that branch unless `--force`. |
 
 `--branch <name>` points a script at another branch of scenarios (default `scenarios`: the local
 branch, else `origin/scenarios`).

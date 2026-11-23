@@ -167,8 +167,8 @@ try {
         id,
         kind: "?",
         key: SKIP,
-        applies: FAIL,
-        baseline: SKIP,
+        applies: SKIP,
+        baseline: FAIL,
         planted: SKIP,
         notes: [(error as Error).message],
       }
