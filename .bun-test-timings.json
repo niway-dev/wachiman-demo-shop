@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "files": {
+    "packages/infra-auth/src/infra-auth.test.ts": 467,
+    "apps/shop-api/src/api.test.ts": 348,
+    "packages/infra-db/src/infra-db.test.ts": 73,
+    "packages/application/src/application.test.ts": 53,
+    "packages/domain/src/money.test.ts": 4,
+    "packages/domain/src/role.test.ts": 4
+  }
+}

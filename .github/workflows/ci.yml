@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Exact canary: `bun lint` exists only in this build. Change it by a commit that re-runs CI.
+  BUN_VERSION: 1.4.5-canary.20261122.1
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g bun@${BUN_VERSION}
+      - run: bun install --frozen-lockfile
+      - run: bun lint
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g bun@${BUN_VERSION}
+      - run: bun install --frozen-lockfile
+      - run: bun fmt --check
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g bun@${BUN_VERSION}
+      - run: bun install --frozen-lockfile
+      - run: bun check
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g bun@${BUN_VERSION}
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The released binary, not gitleaks-action (which needs a license for organizations).
+      - name: Install gitleaks
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$archive" "$base/$archive"
+          curl -fsSL -o checksums.txt "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " $archive\$" checksums.txt | sha256sum --check -
+          tar -xzf "$archive" gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+      - run: gitleaks detect --source . --redact --verbose
+
+  # Decides the shard matrix. Tests depend on it; nothing else depends on anything.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      total: ${{ steps.plan.outputs.total }}
+    steps:
+      - id: plan
+        run: |
+          echo 'shards=[1,2]' >> "$GITHUB_OUTPUT"
+          echo 'total=2' >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # --changed=origin/main needs the base branch history.
+          fetch-depth: 0
+      - run: npm install -g bun@${BUN_VERSION}
+      - run: bun install --frozen-lockfile
+      - name: Test (changed files on a pull request)
+        if: github.event_name == 'pull_request'
+        run: >
+          bun test --parallel
+          --shard=${{ matrix.shard }}/${{ needs.plan.outputs.total }}
+          --timings=.bun-test-timings.json
+          --changed=origin/main
+      - name: Test (full suite on main, refreshing the timings)
+        if: github.event_name != 'pull_request'
+        run: >
+          bun test --parallel
+          --shard=${{ matrix.shard }}/${{ needs.plan.outputs.total }}
+          --timings=.bun-test-timings.json
+          --update-timings
+      - name: Upload the measured timings
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bun-test-timings-shard-${{ matrix.shard }}
+          path: .bun-test-timings.json
+
+  ci-ok:
+    if: always()
+    needs: [lint, format, typecheck, build, secrets, plan, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job did not succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -Eq '"result": "(failure|cancelled|skipped)"'; then
+            echo "A required job did not succeed."
+            exit 1
+          fi
