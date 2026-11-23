@@ -161,3 +161,6 @@ data/
 *.db
 *.db-shm
 *.db-wal
+
+# Review run output (scripts/report.ts)
+.runs/
