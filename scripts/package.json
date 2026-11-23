@@ -1,0 +1,10 @@
+{
+  "name": "@demo-shop/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@demo-shop/infra-auth": "workspace:*",
+    "@demo-shop/infra-db": "workspace:*"
+  }
+}

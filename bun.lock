@@ -92,6 +92,14 @@
         "drizzle-kit": "catalog:",
       },
     },
+    "scripts": {
+      "name": "@demo-shop/scripts",
+      "version": "0.0.0",
+      "dependencies": {
+        "@demo-shop/infra-auth": "workspace:*",
+        "@demo-shop/infra-db": "workspace:*",
+      },
+    },
   },
   "catalog": {
     "@orpc/client": "1.16.5",
@@ -174,6 +182,8 @@
     "@demo-shop/infra-auth": ["@demo-shop/infra-auth@workspace:packages/infra-auth"],
 
     "@demo-shop/infra-db": ["@demo-shop/infra-db@workspace:packages/infra-db"],
+
+    "@demo-shop/scripts": ["@demo-shop/scripts@workspace:scripts"],
 
     "@demo-shop/shop-api": ["@demo-shop/shop-api@workspace:apps/shop-api"],
 
