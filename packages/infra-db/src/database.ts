@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite"
 import { drizzle } from "drizzle-orm/bun-sqlite"
 import { migrate } from "drizzle-orm/bun-sqlite/migrator"
-import { join } from "node:path"
+import { isAbsolute, join } from "node:path"
 import * as schema from "./schema.ts"
 
 export type ShopDatabase = ReturnType<typeof drizzle<typeof schema>>
@@ -29,4 +29,17 @@ export function openDatabase(path: string): DatabaseHandle {
 /** Applies every pending migration from `migrationsFolder`. */
 export function migrateDatabase(handle: DatabaseHandle): void {
   migrate(handle.db, { migrationsFolder })
+}
+
+const repositoryRoot = join(import.meta.dir, "..", "..", "..")
+
+/**
+ * Resolves the database path. A relative path is relative to the repository
+ * root (not to the app's working directory), so every app and script opens the
+ * same file. Defaults to `data/shop.db`.
+ */
+export function resolveDatabasePath(path: string | undefined): string {
+  const value = path && path.length > 0 ? path : "data/shop.db"
+  if (value === ":memory:") return value
+  return isAbsolute(value) ? value : join(repositoryRoot, value)
 }
